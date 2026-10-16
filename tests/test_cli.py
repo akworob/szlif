@@ -43,9 +43,24 @@ class Aktualizacje(unittest.TestCase):
         self.assertIn(szlif_core.__version__, out.getvalue())
 
     def test_no_check_without_consent(self):  # Szlif talks to nothing but the model unless the user agreed
+        config.save({"aktualizacje": False})
         with mock.patch("szlif_core.update.latest_release") as latest:
             self.assertIsNone(szlif.startup_update_check(lambda q: True, io.StringIO()))
         latest.assert_not_called()
+
+    def test_asks_once_when_never_asked(self):  # updated from 0.1.0 by hand: the installer never asked
+        questions = []
+        with mock.patch("szlif_core.update.latest_release", return_value=None):
+            szlif.startup_update_check(lambda q: questions.append(q) or True, io.StringIO())
+            szlif.startup_update_check(lambda q: questions.append(q) or True, io.StringIO())
+        self.assertEqual(len(questions), 1)
+        self.assertIs(config.load()["aktualizacje"], True)
+
+    def test_no_question_and_no_check_without_a_terminal(self):
+        with mock.patch("szlif_core.update.latest_release") as latest:
+            self.assertIsNone(szlif.startup_update_check(None, io.StringIO()))
+        latest.assert_not_called()
+        self.assertNotIn("aktualizacje", config.load())  # asked later, in a terminal
 
     def test_check_with_consent_reports_and_stamps(self):
         config.save({"aktualizacje": True})

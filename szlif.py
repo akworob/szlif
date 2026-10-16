@@ -170,10 +170,14 @@ def rewrite_file(args: argparse.Namespace) -> int:
 
 
 def startup_update_check(ask, out) -> Optional[Dict]:
-    """At start, only when the user agreed in the installer and at most once a day: a newer
-    release, offered for update now (t/n). Returns {"wersja", "adres"} for the page, or
+    """At start, only when the user agreed and at most once a day: a newer release, offered for
+    update now (t/n). Who never answered (installed before updates existed) is asked once, but only
+    in a terminal; ask is None without one. Returns {"wersja", "adres"} for the page, or
     {"zaktualizowano": True} when Szlif was just updated and must be started again."""
     settings = config.load()
+    if "aktualizacje" not in settings and ask is not None:
+        settings["aktualizacje"] = ask(update.CONSENT_QUESTION)
+        config.save(settings)
     if not update.check_due(settings, time.time()):
         return None
     release = update.latest_release()
@@ -201,7 +205,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         except KeyboardInterrupt:
             print("\nPrzerwano.")
             return 1
-    found = startup_update_check(install.ask_yes if sys.stdin.isatty() else (lambda q: False), sys.stdout)
+    found = startup_update_check(install.ask_yes if sys.stdin.isatty() else None, sys.stdout)
     if found and found.get("zaktualizowano"):
         return 0
     backend = make_backend(args.serwer, args.rodzaj, api_key=os.environ.get("SZLIF_API_KEY"))

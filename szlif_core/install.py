@@ -16,7 +16,7 @@ import urllib.request
 from pathlib import Path
 from typing import Callable, List, Optional, TextIO, Tuple
 
-from . import COMMAND, config
+from . import COMMAND, config, update
 from .backends import BackendError, OllamaBackend
 from .cleaner import clean
 from .rewrite import run_round
@@ -278,8 +278,7 @@ def run_installer(base_url: str, ask: Callable[[str], bool], run: Callable[[List
         say("  uwaga: " + problem["message"])
     settings = dict(config.load(), model=model)
     if "aktualizacje" not in settings:  # asked once; Szlif talks to nothing but the model without consent
-        settings["aktualizacje"] = ask("Sprawdzać przy starcie, czy jest nowa wersja Szlifu? Jedno zapytanie do "
-                                       "GitHuba raz na dobę, bez wysyłania tekstów.")
+        settings["aktualizacje"] = ask(update.CONSENT_QUESTION)
     config.save(settings)
     say("Gotowe. Uruchom: %s" % COMMAND)
     return 0

@@ -24,6 +24,7 @@ REPO = "akworob/szlif"
 LATEST = "https://api.github.com/repos/%s/releases/latest" % REPO
 GITHUB_HOSTS = {"api.github.com", "github.com", "codeload.github.com"}
 DAY = 24 * 3600
+CONSENT_QUESTION = "Sprawdzać przy starcie, czy jest nowa wersja Szlifu? Jedno zapytanie do GitHuba raz na dobę, bez wysyłania tekstów."
 ROOT = Path(__file__).resolve().parent.parent
 
 Run = Callable[[list], Tuple[int, str]]

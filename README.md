@@ -9,6 +9,7 @@ Szlif przepisuje polski tekst modelem Bielik i czyści go z ukrytych znaków. Mo
 ## Co robi
 
 - **Przepisywanie Bielikiem.** Akapit po akapicie, w jednej, dwóch albo trzech rundach: rytm zdań, słownictwo, przejścia między zdaniami. Akapit kończy się pustym wierszem albo zwykłym Enterem (tak wkleja się tekst z Worda czy Google Docs), a wiersz złamany w środku zdania (np. z PDF) jest łączony z następnym. Nagłówki, pozycje list, cytaty, tabele i akapity krótsze niż 12 słów zostają bez zmian. Model działa lokalnie przez [Ollamę](https://ollama.com).
+- **Style pisania.** Dwie listy na stronie: **czytelność** (normalna, prosta, akademicka, ekspercka) i **cel tekstu** (ogólny, naukowy, biznesowy, e-mail, esej, marketingowy, prawny). Styl to dodatkowe polecenie dla modelu w każdej rundzie. Styl naukowy każe zachować zastrzeżenia, elementy wyliczeń i przypisy, a marketingowy zabrania nowych obietnic i liczb. Strona pamięta wybór. Wpływu każdego stylu na dopisywanie treści nie mierzyliśmy, więc czytaj zmiany tak samo uważnie.
 - **Czyszczenie ukrytych znaków.** Usuwa spacje o zerowej szerokości, znacznik BOM, miękkie dywizy, znaki sterujące kierunkiem tekstu i ukryty tekst ze znaków „tag”. Nietypowe spacje zamienia na zwykłe. Litery z cyrylicy lub greki udające łacińskie zamienia na łacińskie, ale tylko wewnątrz słów, które mają też litery łacińskie. Na życzenie zamienia myślniki na przecinki. Każda zmiana jest widoczna na stronie jako pomarańczowa etykieta. Czyszczenie działa także bez modelu.
 - **Strażnik.** Ostrzega, gdy w wyniku brakuje liczby, jednostki, daty albo godziny z oryginału albo gdy pojawiła się nowa. Ostrzega też, gdy akapit wyraźnie się skrócił (poniżej 70% słów) albo urósł (powyżej 140%, a przy krótkim akapicie o więcej niż 6 słów), gdy zmieniła się liczba akapitów i gdy wynik zaczyna mówić o samym tekście („rytm”, „zdania”). To ostatnie znaczy zwykle, że do tekstu przeciekło polecenie dla modelu. Pilnuje też **pewności twierdzeń**: ostrzega, gdy z akapitu znika osłabienie („może”, „nie zawsze”, „w wielu”, „zwykle”, „prawdopodobnie”) albo dochodzi wzmocnienie („muszą”, „zawsze”, „każdy”, „tylko”, „na pewno”). Na koniec wypisuje **słowa z oryginału, których nie ma w wyniku**, np. pominięty element wyliczenia. To lista do przejrzenia, a nie alarm, bo trafiają na nią też synonimy.
 
@@ -35,8 +36,9 @@ Szlif przepisuje polski tekst modelem Bielik i czyści go z ukrytych znaków. Mo
    Instalator robi kolejno:
    - instaluje Ollamę przez [Homebrew](https://brew.sh); bez Homebrew poprosi o pobranie Ollamy ze strony [ollama.com/download](https://ollama.com/download);
    - proponuje wyłączenie funkcji chmurowych Ollamy;
-   - pobiera Bielika dobranego do pamięci RAM;
-   - sprawdza go na krótkim akapicie.
+   - pobiera Bielika dobranego do pamięci RAM; przerwane pobieranie wznawia sam, do 5 prób;
+   - sprawdza go na krótkim akapicie;
+   - pyta, czy przy starcie sprawdzać nowe wersje Szlifu (zobacz [Aktualizacja](#aktualizacja)).
 
    **Przed każdą zmianą w systemie pyta t/n.**
 4. Uruchom stronę:
@@ -89,6 +91,20 @@ Instalator zapamięta wtedy ten model jako domyślny. Powrót do poprzedniego mo
 
 Strona wygląda na Windows tak samo jak na zrzutach powyżej. **Uczciwie:** na Windows Szlif sprawdzają testy automatyczne (GitHub Actions: testy jednostkowe i próbny start strony). Instalatora nie uruchamiano jeszcze na prawdziwym komputerze z Windows. Jeśli coś nie działa, zgłoś to w zakładce Issues.
 
+## Aktualizacja
+
+- **Twoja wersja:** `python3 szlif.py --wersja` (Windows: `py szlif.py --wersja`). Widać ją też w stopce strony.
+- **Aktualizacja:** `python3 szlif.py aktualizuj` (Windows: `py szlif.py aktualizuj`). Szlif pyta GitHuba o najnowsze wydanie, a potem:
+  - w kopii z `git clone` robi `git pull --ff-only`. Gdy masz zmiany w plikach Szlifu, odmawia i prosi o `git stash`, żeby niczego nie nadpisać;
+  - w kopii z ZIP pobiera paczkę wydania z GitHuba i zapisuje jej pliki na stare. Twoje zmiany w plikach Szlifu przepadną, a pliki spoza paczki zostają.
+
+  Potem uruchom Szlif ponownie.
+- **Sprawdzanie przy starcie.** Instalator pyta raz, czy sprawdzać nowe wersje. Kto zainstalował Szlif przed wersją 0.2.0, dostanie to pytanie przy pierwszym starcie w terminalu. Po zgodzie Szlif przy starcie, najwyżej raz na dobę, wysyła jedno zapytanie do GitHuba, bez tekstów. Gdy jest nowsza wersja, pyta w terminalu „Zaktualizować teraz?”, a strona pokazuje pasek z linkiem do opisu zmian.
+- **Bez Twojego „t” nic się nie instaluje.** Szlif nie podmienia własnych plików po cichu: program, który sam zmienia swój kod, powinien to robić tylko na wyraźną zgodę.
+- **Zmiana decyzji:** w pliku `~/.szlif.json` ustaw `"aktualizacje": false` albo `true`.
+- **Wersja 0.1.0 nie umie się aktualizować.** Raz zrób `git pull` w folderze Szlifu albo pobierz ZIP od nowa. Od 0.2.0 wystarczy `szlif.py aktualizuj`.
+- **Co się zmieniło:** [CHANGELOG.md](CHANGELOG.md).
+
 ## Jak czytać wynik
 
 - **Lewa kolumna to oryginał.**
@@ -103,7 +119,8 @@ Strona wygląda na Windows tak samo jak na zrzutach powyżej. **Uczciwie:** na W
   - standardowy (2 rundy: plus słownictwo);
   - wzmocniony (3 rundy: plus przejścia).
 - **Każdy akapit przechodzi rundy osobno**, a każdą rundę porównujemy z jego oryginałem. Seria zatrzymuje się na pierwszym ostrzeżeniu. Runda 1 z ostrzeżeniem zostaje pokazana, żebyś sam zdecydował. Późniejsza runda z ostrzeżeniem jest odrzucana i zostaje runda przed nią. Seria kończy się też wtedy, gdy runda niczego nie zmienia.
-- **Limit to 12 000 znaków.** Dłuższy tekst podziel na części.
+- **Limit to 12 000 znaków.** Dłuższy tekst podziel na części. Samo czyszczenie znaków („Tylko wyczyść znaki”) przyjmuje do 200 000 znaków.
+- **Błąd modelu przy jednym akapicie nie zatrzymuje całości.** Ten akapit zostaje bez zmian, a notatka podaje powód. Brak połączenia z modelem zatrzymuje cały przebieg.
 - **Akapity krótsze niż 12 słów zostają bez zmian.** Pojedyncze zdanie model lubi „uzupełniać” zmyśloną treścią.
 
 ## Weryfikacja i automatyzacja
@@ -144,6 +161,7 @@ python3 szlif.py przepisz tekst.txt --wynik wynik.txt --raport raport.json --wer
 ```
 
 - **`--tryb prosty|standardowy|wzmocniony`**: liczba rund, domyślnie standardowy.
+- **`--czytelnosc normalna|prosta|akademicka|ekspercka`** i **`--cel ogolny|naukowy|biznesowy|email|esej|marketingowy|prawny`**: styl, jak na stronie. Domyślnie `normalna` i `ogolny`.
 - **`--wynik PLIK`**: zapis wyniku do pliku; domyślnie standardowe wyjście. `-` zamiast pliku wejściowego oznacza standardowe wejście, np. `pbpaste | python3 szlif.py przepisz - | pbcopy`.
 - **`--raport PLIK`**: raport w JSON. Zawiera:
   - `akapity`, a w każdym: `numer`, `przed`, `po`, `problemy` i `powod`;
@@ -273,10 +291,11 @@ Szlif nie jest narzędziem do omijania detektorów, a w tym teście wcale ich ni
 ## Prywatność
 
 - **Strona słucha tylko na `127.0.0.1`.** Szlif nie zapisuje wklejonych tekstów i nie prowadzi logów zapytań. Przyjmuje tylko zapytania z własnej strony, więc inna strona w przeglądarce nie może wysłać przez niego tekstu.
-- **Domyślnie rozmawia tylko z Ollamą na tym komputerze.**
+- **Domyślnie rozmawia tylko z Ollamą na tym komputerze.** Wyjątek, tylko za Twoją zgodą: raz na dobę jedno zapytanie do GitHuba o nową wersję (zobacz [Aktualizacja](#aktualizacja)).
+- **Modele w chmurze Ollamy.** Modele z dopiskiem `cloud` w nazwie Ollama uruchamia na swoich serwerach, nie u Ciebie. Gdy wybierzesz taki model na liście, strona pokazuje pasek, że tekst wyjdzie z komputera.
 - **Funkcje chmurowe Ollamy** są domyślnie włączone i łączą się z ollama.com, nawet jeśli używasz tylko lokalnych modeli. Instalator proponuje je wyłączyć, dopisując `"disable_ollama_cloud": true` do pliku `~/.ollama/server.json`. Strona przypomina, gdy są włączone.
 - **Twarde spacje (NBSP):** Word wstawia je celowo przy „sierotkach”, np. w „w domu”. Szlif zamienia je na zwykłe spacje, a każda zamiana jest widoczna. Jeśli ich potrzebujesz, odznacz „czyść ukryte znaki”.
-- **Ustawienia:** wybrany model jest zapisany w pliku `~/.szlif.json`.
+- **Ustawienia:** wybrany model, zgoda na sprawdzanie wersji i czas ostatniego sprawdzenia są zapisane w pliku `~/.szlif.json`. Wybrany styl strona pamięta w przeglądarce.
 
 ## Wymagania
 
