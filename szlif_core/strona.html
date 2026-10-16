@@ -53,6 +53,7 @@
   .error-box { background: var(--danger-bg); color: var(--danger); border-radius: 6px; padding: 10px 14px; margin: 0 0 18px; }
   .summary { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 20px; margin-bottom: 12px; }
   .summary .facts { flex: 1 1 auto; display: grid; gap: 6px; }
+  .copy-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
   .problem { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 8px 12px; border-radius: 4px; }
   .problem b { font-weight: 600; }
   .stopped { color: var(--muted); }
@@ -110,7 +111,10 @@
   <section id="result" hidden>
     <div class="summary">
       <div class="facts" id="facts"></div>
-      <button id="kopiuj">Kopiuj wynik</button>
+      <div class="copy-buttons">
+        <button id="weryfikuj" hidden title="Kopiuje prompt z parami akapitów przed i po. Wklej go do drugiego modelu (Bielik w Ollamie, Claude, GPT, Grok), żeby sprawdził, czy sens i liczby się nie zmieniły.">Kopiuj do weryfikacji</button>
+        <button id="kopiuj">Kopiuj wynik</button>
+      </div>
     </div>
     <div class="columns">
       <div class="column"><h2>Przed</h2><div class="text" id="przed"></div></div>
@@ -134,7 +138,7 @@ const NAMES = {
   SPACJA: "nietypowa spacja", LS: "separator wiersza", PS: "separator akapitu", homoglif: "litera z innego alfabetu",
   "pełna-szerokość": "znak pełnej szerokości", ukryty: "ukryty tekst", "—": "myślnik", "–": "półpauza",
 };
-let limit = 12000, finalText = "", controller = null;
+let limit = 12000, finalText = "", controller = null, toVerify = null;
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -252,11 +256,14 @@ function render(view, notes) {
     facts.append(box);
   }
   $("kopiuj").textContent = "Kopiuj wynik";
+  $("weryfikuj").textContent = "Kopiuj do weryfikacji";
+  $("weryfikuj").hidden = !(toVerify && toVerify.pary.length);
   $("result").hidden = false;
 }
 
 async function cleanOnly() {
   controller = new AbortController();
+  toVerify = null;
   busy("Czyszczę…");
   try { render(await api("/api/widok", Object.assign(options(), {wynik: null}), controller.signal), null); }
   catch (e) { showError(e.message); }
@@ -290,8 +297,9 @@ async function processText() {
   const rounds = Number($("tryb").value), base = options(), model = $("model").value;
   controller = new AbortController();
   $("result").hidden = true;
-  const notes = [], out = [];
+  const notes = [], out = [], pairs = [];
   let cut = false;
+  toVerify = null;
   try {
     busy("Dzielę tekst na akapity…");
     const blocks = (await api("/api/bloki", base, controller.signal)).bloki;
@@ -306,11 +314,20 @@ async function processText() {
       cut = cut || res.cut;
       const shown = res.problems.filter((p) => p.kind !== "values");
       if (shown.length || res.reason) notes.push({number, start: firstWords(block.tekst), problems: shown, reason: res.reason});
+      pairs.push({numer: number, przed: block.tekst, po: res.tekst});
       out.push(res.tekst + block.odstep);
     }
     if (!todo) notes.push({info: "Nie ma tu akapitu do przepisania: nagłówki, listy i akapity krótsze niż 12 słów zostają bez zmian."});
     busy("Porównuję…");
-    render(await api("/api/widok", Object.assign({}, base, {wynik: out.join(""), uciete: cut}), controller.signal), notes);
+    const view = await api("/api/widok", Object.assign({}, base, {wynik: out.join(""), uciete: cut}), controller.signal);
+    const warnings = view.problemy.filter((p) => p.kind === "values").map((p) => p.message
+      + (p.missing.length ? " Brakuje: " + p.missing.join(", ") + "." : "") + (p.added.length ? " Dodane: " + p.added.join(", ") + "." : ""));
+    for (const note of notes) {
+      for (const p of note.problems) warnings.push("Akapit " + note.number + ": " + p.message);
+      if (note.reason) warnings.push("Akapit " + note.number + ": " + note.reason);
+    }
+    toVerify = {pary: pairs, uwagi: warnings};
+    render(view, notes);
   } catch (e) {
     showError(e.name === "AbortError" ? "Przerwano." : e.message);
   } finally {
@@ -337,11 +354,21 @@ function copyFallback(text) {
   return ok;
 }
 
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) { return copyFallback(text); }
+}
+
 $("kopiuj").addEventListener("click", async () => {
-  let ok = false;
-  try { await navigator.clipboard.writeText(finalText); ok = true; } catch (e) { ok = copyFallback(finalText); }
-  if (ok) $("kopiuj").textContent = "Skopiowano";
+  if (await copyText(finalText)) $("kopiuj").textContent = "Skopiowano";
   else showError("Nie udało się skopiować. Zaznacz tekst w kolumnie Po i skopiuj ręcznie.");
+});
+$("weryfikuj").addEventListener("click", async () => {
+  try {
+    const prompt = (await api("/api/weryfikacja", toVerify)).prompt;
+    if (!prompt) { showError("Żaden akapit się nie zmienił, więc nie ma czego sprawdzać."); return; }
+    if (await copyText(prompt)) $("weryfikuj").textContent = "Skopiowano prompt";
+    else showError("Nie udało się skopiować promptu.");
+  } catch (e) { showError(e.message); }
 });
 updateCount();
 loadState();

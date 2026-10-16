@@ -143,6 +143,21 @@ class Bloki(unittest.TestCase):
         self.assertEqual((status, r["blad"]), (400, "Wklej tekst."))
 
 
+class Weryfikacja(unittest.TestCase):
+    def test_prompt_built(self):
+        body = {"pary": [{"numer": 2, "przed": "Ala ma kota.", "po": "Kot jest Ali."}], "uwagi": ["Akapit 2: uwaga"]}
+        with Running(FakeBackend()) as s:
+            status, r, _ = s.call("POST", "/api/weryfikacja", body)
+        self.assertEqual(status, 200)
+        self.assertIn("Akapit 2\nPRZED: Ala ma kota.\nPO: Kot jest Ali.", r["prompt"])
+        self.assertIn("- Akapit 2: uwaga", r["prompt"])
+
+    def test_bad_pairs(self):
+        with Running(FakeBackend()) as s:
+            status, r, _ = s.call("POST", "/api/weryfikacja", {"pary": "x", "uwagi": []})
+        self.assertEqual((status, r["blad"]), (400, "Nieprawidłowe zapytanie."))
+
+
 class Runda(unittest.TestCase):
     def test_runda_ok(self):
         with Running(FakeBackend([Reply("Kot jest Ali.", False)])) as s:

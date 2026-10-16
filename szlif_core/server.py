@@ -18,6 +18,7 @@ from .blocks import split_blocks
 from .cleaner import clean, summary
 from .guard import check
 from .rewrite import MAX_CHARS, MODES, run_round
+from .verify import build_prompt
 from .view import build_view
 
 PAGE = Path(__file__).with_name("strona.html")
@@ -109,7 +110,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError
         except ValueError:
             return self._json(400, {"blad": "Nieprawidłowe zapytanie."})
-        routes = {"/api/bloki": self._bloki, "/api/runda": self._runda, "/api/widok": self._widok}
+        routes = {"/api/bloki": self._bloki, "/api/runda": self._runda, "/api/widok": self._widok,
+                  "/api/weryfikacja": self._weryfikacja}
         route = routes.get(self.path.split("?", 1)[0])
         if route is None:
             return self._json(404, {"blad": "Nie ma takiej strony."})
@@ -141,6 +143,17 @@ class Handler(BaseHTTPRequestHandler):
         tekst = _text(body, "tekst")
         cleaned = clean(tekst, bool(body.get("ukryte", True)), bool(body.get("myslniki", False))).text
         return {"bloki": split_blocks(cleaned)}
+
+    def _weryfikacja(self, body: Dict) -> Dict:
+        """The prompt for a second model that checks the meaning of every rewritten paragraph."""
+        pairs, warnings = body.get("pary"), body.get("uwagi", [])
+        try:
+            pairs = [(int(p["numer"]), str(p["przed"]), str(p["po"])) for p in pairs]
+            if not isinstance(warnings, list):
+                raise TypeError
+        except (TypeError, KeyError, ValueError):
+            raise Invalid(400, "Nieprawidłowe zapytanie.")
+        return {"prompt": build_prompt(pairs, [str(w) for w in warnings])}
 
     def _runda(self, body: Dict) -> Dict:
         tekst = _text(body, "tekst")
