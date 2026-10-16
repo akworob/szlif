@@ -57,6 +57,15 @@ class Rounds(unittest.TestCase):
         self.assertEqual(system, SYSTEM_PROMPT)
         self.assertEqual(user, "%s %s\n\n%s" % (TASK_LINE, ROUNDS[1][1], current))
 
+    def test_unchanged_round_stops(self):  # measured: rounds 2 and 3 returned round 1 word for word, 4 minutes
+        current = "Spotkanie jest 9 kwietnia."
+        r, _ = run([Reply(current, False)], round_no=2, current=current)
+        self.assertEqual((r["przyjeta"], r["stop"], r["bez_zmian"], r["powod"]), (True, True, True, None))
+
+    def test_changed_round_continues(self):
+        r, _ = run([Reply("Spotkanie jest 9 kwietnia.", False)])
+        self.assertEqual((r["stop"], r["bez_zmian"]), (False, False))
+
     def test_bad_round(self):
         for n in (0, 4):
             with self.subTest(n=n), self.assertRaises(ValueError):

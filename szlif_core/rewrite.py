@@ -53,11 +53,15 @@ def run_round(backend: Backend, model: str, original: str, current: str, round_n
     except BackendError as e:
         if round_no == 1:
             raise
-        return {"tekst": "", "problemy": [], "przyjeta": False, "stop": True,
+        return {"tekst": "", "problemy": [], "przyjeta": False, "stop": True, "bez_zmian": False,
                 "powod": "Zatrzymano po rundzie %d: runda %d nie powiodła się (%s)." % (round_no - 1, round_no, e)}
+    if out == current.strip():
+        # Measured: given its own clean output, Bielik returned it word for word, minutes per round;
+        # the rounds after it would do the same.
+        return {"tekst": out, "problemy": [], "przyjeta": True, "stop": True, "bez_zmian": True, "powod": None}
     problems = check(original, out, reply.cut)
     result = {"tekst": out, "problemy": [asdict(p) for p in problems], "przyjeta": True, "stop": False,
-              "powod": None}
+              "bez_zmian": False, "powod": None}
     if problems and round_no == 1:
         result.update(stop=True, powod="Zatrzymano po rundzie 1: ostrzeżenie strażnika. Sprawdź wynik.")
     elif problems:
