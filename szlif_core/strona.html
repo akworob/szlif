@@ -34,16 +34,16 @@
   .banner.cloud { background: var(--warn-bg); color: var(--ink); border-left: 4px solid var(--warn); }
   .banner.error { background: var(--panel); color: var(--muted); border: 1px solid var(--line); }
   textarea {
-    width: 100%; min-height: 190px; resize: vertical; padding: 14px 16px; border: 1px solid var(--line);
+    width: 100%; max-width: 100%; min-height: 190px; resize: vertical; padding: 14px 16px; border: 1px solid var(--line);
     border-radius: 8px; background: var(--panel); color: var(--ink); font: 17px/1.6 var(--serif);
   }
   .count { text-align: right; color: var(--muted); font-size: 13px; margin-top: 4px; }
   .count.over { color: var(--danger); font-weight: 600; }
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin: 10px 0 18px; }
-  .controls label { display: inline-flex; align-items: center; gap: 6px; }
+  .controls label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
   .controls .push { margin-left: auto; display: flex; gap: 10px; }
   select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
-           border-radius: 6px; padding: 5px 8px; max-width: 340px; }
+           border-radius: 6px; padding: 5px 8px; max-width: min(340px, 100%); min-width: 0; }
   button { font: inherit; border-radius: 6px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line);
            background: var(--panel); color: var(--ink); }
   button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
@@ -52,7 +52,7 @@
   .progress { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; color: var(--muted); }
   .error-box { background: var(--danger-bg); color: var(--danger); border-radius: 6px; padding: 10px 14px; margin: 0 0 18px; }
   .summary { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 20px; margin-bottom: 12px; }
-  .summary .facts { flex: 1 1 auto; display: grid; gap: 6px; }
+  .summary .facts { flex: 1 1 auto; display: grid; gap: 6px; min-width: 0; }
   .copy-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
   .problem { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 8px 12px; border-radius: 4px; }
   .problem b { font-weight: 600; }
