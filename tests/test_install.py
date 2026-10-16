@@ -12,7 +12,10 @@ from tests.fakes import FakeServer
 BREW_ONLY = {"brew": "/opt/homebrew/bin/brew"}.get
 NOTHING = {}.get
 Q6 = "hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q6_K"
-CHAT = (200, {"message": {"content": "Spotkanie będzie 9 kwietnia o godz. 18:00 w sali nr 2. Udział jest bezpłatny."}, "done_reason": "stop"}, 0)
+CHAT = (200, {"message": {"content": "Spotkanie odbędzie się 9 kwietnia o godz. 18:00 w sali nr 2. Udział jest "
+                                     "bezpłatny, ale prosimy wcześniej potwierdzić swoją obecność."},
+              "done_reason": "stop"}, 0)
+SHORT_CHAT = (200, {"message": {"content": "Spotkanie 9 kwietnia o godz. 18:00 w sali nr 2."}, "done_reason": "stop"}, 0)
 
 
 def never_asked(question):
@@ -154,6 +157,18 @@ class Installer(unittest.TestCase):
             code = install.run_installer(s.url, lambda q: True, self.run_cmd, NOTHING, "Darwin", out, 32)
         self.assertEqual(code, 1, out.getvalue())
         self.assertNotIn("Gotowe", out.getvalue())
+
+    def test_test_round_warning_is_not_failure(self):
+        routes = {("GET", "/api/version"): (200, {"version": "0.40.1"}, 0),
+                  ("GET", "/api/status"): (200, {"cloud": {"disabled": True}}, 0),
+                  ("GET", "/api/tags"): (200, {"models": [{"name": Q6}]}, 0),
+                  ("POST", "/api/chat"): SHORT_CHAT}
+        out = io.StringIO()
+        with FakeServer(routes) as s:
+            code = install.run_installer(s.url, never_asked, self.run_cmd, NOTHING, "Darwin", out, 32)
+        self.assertEqual(code, 0, out.getvalue())
+        self.assertIn("uwaga:", out.getvalue())
+        self.assertIn("Gotowe", out.getvalue())
 
     def test_other_bielik_reused(self):
         other = "hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q5_K_M"

@@ -66,6 +66,34 @@ class Check(unittest.TestCase):
     def test_too_long(self):
         self.assertEqual([p.kind for p in check("dwa słowa", " ".join(["x"] * 20))], ["too_long"])
 
+    def test_paragraph_grows_by_half(self):  # measured: an invented sentence appended to a paragraph
+        original = " ".join(["słowo"] * 21)
+        self.assertEqual([p.kind for p in check(original, " ".join(["słowo"] * 32))], ["too_long"])
+        self.assertEqual(check(original, " ".join(["słowo"] * 26)), [])
+
+    def test_too_short(self):  # measured: a whole article came back as a summary (1035 -> 420 words)
+        original = " ".join(["słowo"] * 40)
+        problems = check(original, " ".join(["słowo"] * 20))
+        self.assertEqual([p.kind for p in problems], ["too_short"])
+        self.assertIn("50%", problems[0].message)
+        self.assertEqual(check(original, " ".join(["słowo"] * 30)), [])
+        self.assertEqual(check("Bardzo krótki tekst tutaj.", "Krótki tekst."), [])
+
+    def test_paragraph_count(self):
+        problems = check("Ala ma kota.\n\nKot ma Alę.", "Ala ma kota, a kot ma Alę.")
+        self.assertIn("paragraphs", [p.kind for p in problems])
+        self.assertIn("2 \u2192 1", [p.message for p in problems if p.kind == "paragraphs"][0])
+
+    def test_meta_comment(self):  # measured: an instruction leaked into the text
+        original = "Jeśli dolegliwości wyraźnie się zmniejszają, może to pomóc w planowaniu dalszego leczenia."
+        output = original + " Krótkie zdania przeplatają się z dłuższymi, co nadaje tekstowi naturalny rytm."
+        kinds = [p.kind for p in check(original, output)]
+        self.assertIn("meta", kinds)
+
+    def test_meta_words_already_in_original(self):
+        text = "Ten tekst ma dobry rytm, a zdania są krótkie."
+        self.assertEqual(check(text, "Zdania są krótkie, a ten tekst ma dobry rytm."), [])
+
 
 if __name__ == "__main__":
     unittest.main()

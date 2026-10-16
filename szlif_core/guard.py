@@ -21,7 +21,7 @@ class Value:
 
 @dataclass
 class Problem:
-    kind: str                             # "values" | "cut" | "too_long"
+    kind: str                             # "values" | "cut" | "too_long" | "too_short" | "paragraphs" | "meta"
     message: str
     missing: List[str]                    # shown forms from the original
     added: List[str]                      # shown forms from the output
@@ -31,8 +31,18 @@ class Problem:
 MESSAGES = {
     "values": "Liczby, jednostki lub daty różnią się od oryginału. Sprawdź przed użyciem.",
     "cut": "Odpowiedź modelu została ucięta. Podziel tekst na części.",
-    "too_long": "Wynik jest dużo dłuższy od tekstu. Model mógł odpowiedzieć na tekst zamiast go przepisać.",
+    "too_long": "Wynik jest wyraźnie dłuższy od tekstu (%d%% słów). Model mógł coś dopisać albo odpowiedzieć "
+                "na tekst zamiast go przepisać.",
+    "too_short": "Wynik jest wyraźnie krótszy od tekstu (%d%% słów). Model mógł coś pominąć albo streścić tekst.",
+    "paragraphs": "Zmieniła się liczba akapitów (%d \u2192 %d). Model mógł połączyć, rozdzielić albo dopisać akapity.",
+    "meta": "Wynik mówi o samym tekście („%s”), a oryginał nie. Model mógł dopisać komentarz albo fragment "
+            "polecenia.",
 }
+# Measured on a 1000-word article: Bielik appended invented sentences to a paragraph (+50% words),
+# summarised a whole text (-60%) and once wrote its own instruction into the text ("Krótkie zdania
+# przeplatają się z dłuższymi, co nadaje tekstowi naturalny rytm."). None of it has numbers.
+LONGER, SHORTER, MIN_WORDS_FOR_SHORT = 1.4, 0.7, 8
+META_STEMS = ("rytm", "zdani", "tekst", "przepis", "akapit", "redakc", "redakt")
 
 MONTHS = "stycznia lutego marca kwietnia maja czerwca lipca sierpnia września października listopada grudnia"
 # Each unit word a rewrite may spell another way, and the one spelling the guard compares.
@@ -106,6 +116,32 @@ def check(original: str, output: str, cut: bool = False) -> List[Problem]:
                                 [v.shown for v in added], [(v.start, v.end) for v in missing]))
     if cut:
         problems.append(Problem("cut", MESSAGES["cut"], [], [], []))
-    if len(output.split()) > 3 * len(original.split()) + 8:
-        problems.append(Problem("too_long", MESSAGES["too_long"], [], [], []))
+    words_in, words_out = len(original.split()), len(output.split())
+    ratio = round(100 * words_out / words_in) if words_in else 100
+    if words_out > max(LONGER * words_in, words_in + 6):
+        problems.append(Problem("too_long", MESSAGES["too_long"] % ratio, [], [], []))
+    elif words_in >= MIN_WORDS_FOR_SHORT and words_out < SHORTER * words_in:
+        problems.append(Problem("too_short", MESSAGES["too_short"] % ratio, [], [], []))
+    paragraphs_in, paragraphs_out = _paragraphs(original), _paragraphs(output)
+    if paragraphs_in != paragraphs_out:
+        problems.append(Problem("paragraphs", MESSAGES["paragraphs"] % (paragraphs_in, paragraphs_out), [], [], []))
+    meta = _meta_word(original, output)
+    if meta:
+        problems.append(Problem("meta", MESSAGES["meta"] % meta, [], [], []))
     return problems
+
+
+def _paragraphs(text: str) -> int:
+    return len([p for p in re.split(r"\n\s*\n", text) if p.strip()])
+
+
+def _meta_word(original: str, output: str) -> str:
+    """The first word of output that talks about writing (rytm, zdania, tekst, ...) where the
+    original never does: a comment or a piece of the instruction, not a rewrite."""
+    def stems(text: str) -> set:
+        return {s for w in re.findall(r"\w+", text.lower()) for s in META_STEMS if w.startswith(s)}
+    new = stems(output) - stems(original)
+    for word in re.findall(r"\w+", output):
+        if any(word.lower().startswith(s) for s in new):
+            return word
+    return ""

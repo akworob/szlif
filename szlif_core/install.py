@@ -238,7 +238,7 @@ def run_installer(base_url: str, ask: Callable[[str], bool], run: Callable[[List
     except BackendError as e:
         say("Próba nie powiodła się: %s" % e)
         return 1
-    if not result["przyjeta"]:  # from round 2 on, run_round reports an error instead of raising it
+    if not result["tekst"]:  # from round 2 on, run_round reports an error instead of raising it
         say("Próba nie powiodła się: %s" % result["powod"])
         return 1
     say("  przed: " + TEST_TEXT)
