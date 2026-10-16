@@ -203,7 +203,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.polecenie == "aktualizuj":
         return update.run_update(sys.stdout)
     if args.polecenie == "instaluj":
-        from szlif_core import install
         try:
             return install.main(args.serwer, args.model)
         except KeyboardInterrupt:

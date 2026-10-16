@@ -81,6 +81,15 @@ class Aktualizacje(unittest.TestCase):
         make_server.assert_not_called()
         self.assertIn("Przerwano", out.getvalue())
 
+    def test_start_in_a_terminal_asks_with_the_installer_question(self):  # 0.2.0 crashed here
+        out = io.StringIO()
+        with mock.patch.object(szlif.sys, "stdin") as stdin, \
+                mock.patch.object(szlif, "startup_update_check", side_effect=KeyboardInterrupt) as check, \
+                contextlib.redirect_stdout(out):
+            stdin.isatty.return_value = True
+            self.assertEqual(szlif.main([]), 1)
+        self.assertIs(check.call_args[0][0], szlif.install.ask_yes)
+
     def test_no_question_and_no_check_without_a_terminal(self):
         with mock.patch("szlif_core.update.latest_release") as latest:
             self.assertIsNone(szlif.startup_update_check(None, io.StringIO()))

@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.2.1 (październik 2026)
+
+- **Poprawka:** w 0.2.0 strona nie startowała, gdy `python3 szlif.py` uruchomiono w terminalu (błąd `UnboundLocalError`). Z wersji 0.2.0 zaktualizujesz się poleceniem `python3 szlif.py aktualizuj`, bo ono działało.
+- **README:** polecenia `szlif.py` uruchamia się w folderze Szlifu albo z pełną ścieżką.
+
 ## 0.2.0 (październik 2026)
 
 - **Style pisania.** Dwie nowe listy na stronie: **czytelność** (normalna, prosta, akademicka, ekspercka) i **cel tekstu** (ogólny, naukowy, biznesowy, e-mail, esej, marketingowy, prawny). W wierszu poleceń: `--czytelnosc` i `--cel`. Styl obowiązuje w każdej rundzie.
