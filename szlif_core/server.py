@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import COMMAND
+from . import COMMAND, __version__
 from .backends import Backend, BackendError
 from .blocks import split_blocks
 from .cleaner import clean, summary
@@ -150,7 +150,8 @@ class Handler(BaseHTTPRequestHandler):
                 "chmura_wylaczona": cloud, "modele": models, "model": model, "limit": MAX_CHARS,
                 "tryby": MODES, "blad": error, "polecenie": COMMAND,
                 "czytelnosci": [[k, label] for k, (label, _) in READABILITY.items()],
-                "cele": [[k, label] for k, (label, _) in PURPOSE.items()]}
+                "cele": [[k, label] for k, (label, _) in PURPOSE.items()],
+                "aktualizacja": self.server.update_info, "wersja": __version__}
 
     def _bloki(self, body: Dict) -> Dict:
         """The cleaned text in blocks; the page rewrites the paragraphs one at a time."""
@@ -225,11 +226,14 @@ class Server(ThreadingHTTPServer):
         pass  # a closed browser tab is not an error worth printing
 
 
-def make_server(backend: Backend, default_model: Optional[str], port: int = 8765) -> Server:
+def make_server(backend: Backend, default_model: Optional[str], port: int = 8765,
+                update_info: Optional[Dict] = None) -> Server:
+    """update_info: a newer release found at start ({"wersja", "adres"}), shown on the page."""
     try:
         server = Server(("127.0.0.1", port), Handler)
     except OSError:
         server = Server(("127.0.0.1", 0), Handler)
     server.backend = backend
     server.default_model = default_model
+    server.update_info = update_info
     return server

@@ -142,6 +142,7 @@
   </section>
 
   <footer>
+    <span id="wersja"></span>
     Przeczytaj każdą zmianę, zanim użyjesz tekstu.
     <a href="https://github.com/akworob/szlif#jakość" target="_blank" rel="noopener noreferrer">Dlaczego?</a>
   </footer>
@@ -207,6 +208,19 @@ async function loadState() {
     banners.append(el("div", "banner cloud", "Funkcje chmurowe Ollamy są włączone. Wyłącz je: " + st.polecenie + " instaluj"));
   }
   if (st.blad) banners.append(el("div", "banner error", st.blad));
+  if (st.aktualizacja && st.aktualizacja.wersja) {
+    const box = el("div", "banner cloud", "Jest nowa wersja Szlifu: " + st.aktualizacja.wersja + " (masz " + st.wersja
+      + "). Zaktualizuj w terminalu: " + st.polecenie + " aktualizuj, potem uruchom Szlif ponownie. ");
+    if (/^https:\/\/github\.com\//.test(st.aktualizacja.adres || "")) {
+      const link = el("a", "", "Co nowego?");
+      link.href = st.aktualizacja.adres;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      box.append(link);
+    }
+    banners.append(box);
+  }
+  $("wersja").textContent = st.wersja ? "Szlif " + st.wersja + ". " : "";
   fillChoices($("czytelnosc"), st.czytelnosci || [], remembered("czytelnosc"));
   fillChoices($("cel"), st.cele || [], remembered("cel"));
   const select = $("model");

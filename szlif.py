@@ -15,10 +15,11 @@ if sys.version_info < (3, 9):
 import argparse
 import json
 import os
+import time
 import webbrowser
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from szlif_core import COMMAND, config
+from szlif_core import COMMAND, __version__, config, install, update
 from szlif_core.backends import BackendError, make_backend
 from szlif_core.process import process_text, warning_lines
 from szlif_core.rewrite import MODES, PURPOSE, READABILITY
@@ -44,11 +45,13 @@ def parse_args(argv: Optional[List[str]]) -> argparse.Namespace:
     p.add_argument("--model", help="nazwa modelu (domyślnie ten, który wybrał instalator)")
     p.add_argument("--port", type=int, default=8765, help="port strony (domyślnie 8765)")
     p.add_argument("--bez-przegladarki", action="store_true", help="nie otwieraj przeglądarki")
+    p.add_argument("--wersja", action="version", version="Szlif %s" % __version__, help="pokaż wersję i zakończ")
     sub = p.add_subparsers(dest="polecenie")
     installer = sub.add_parser("instaluj", help="instaluje Ollamę i pobiera Bielika")
     installer.add_argument("--serwer", default=argparse.SUPPRESS, help="adres Ollamy (domyślnie lokalna)")
     installer.add_argument("--model", default=argparse.SUPPRESS,
                            help="zainstaluj ten model zamiast dobranego do pamięci RAM")
+    sub.add_parser("aktualizuj", help="pobiera najnowszą wersję Szlifu z GitHuba")
     rw = sub.add_parser("przepisz", help="przepisuje plik akapit po akapicie (dla skryptów i agentów)",
                         description="Kod wyjścia: 0 bez ostrzeżeń, 3 są ostrzeżenia (przeczytaj je), 1 błąd.")
     rw.add_argument("plik", help="plik tekstowy UTF-8 albo - (standardowe wejście)")
@@ -166,11 +169,31 @@ def rewrite_file(args: argparse.Namespace) -> int:
     return 3 if result["ostrzezenia"] else 0
 
 
+def startup_update_check(ask, out) -> Optional[Dict]:
+    """At start, only when the user agreed in the installer and at most once a day: a newer
+    release, offered for update now (t/n). Returns {"wersja", "adres"} for the page, or
+    {"zaktualizowano": True} when Szlif was just updated and must be started again."""
+    settings = config.load()
+    if not update.check_due(settings, time.time()):
+        return None
+    release = update.latest_release()
+    config.save(update.stamp(settings))
+    if not release or not update.newer(release["wersja"], __version__):
+        return None
+    print("Jest nowa wersja Szlifu: %s (masz %s). %s" % (release["wersja"], __version__, release["adres"]),
+          file=out, flush=True)
+    if ask("Zaktualizować teraz?") and update.run_update(out, release=release) == 0:
+        return {"zaktualizowano": True}
+    return {"wersja": release["wersja"], "adres": release["adres"]}
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     setup_console()
     args = parse_args(argv)
     if args.polecenie == "przepisz":
         return rewrite_file(args)
+    if args.polecenie == "aktualizuj":
+        return update.run_update(sys.stdout)
     if args.polecenie == "instaluj":
         from szlif_core import install
         try:
@@ -178,8 +201,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         except KeyboardInterrupt:
             print("\nPrzerwano.")
             return 1
+    found = startup_update_check(install.ask_yes if sys.stdin.isatty() else (lambda q: False), sys.stdout)
+    if found and found.get("zaktualizowano"):
+        return 0
     backend = make_backend(args.serwer, args.rodzaj, api_key=os.environ.get("SZLIF_API_KEY"))
-    server = make_server(backend, args.model or config.load().get("model"), args.port)
+    server = make_server(backend, args.model or config.load().get("model"), args.port, found)
     url = "http://127.0.0.1:%d" % server.server_address[1]
     print("Szlif działa: %s  (Ctrl+C kończy)" % url, flush=True)
     if not backend.is_local:

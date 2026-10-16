@@ -276,7 +276,11 @@ def run_installer(base_url: str, ask: Callable[[str], bool], run: Callable[[List
     say("  po:    " + result["tekst"])
     for problem in result["problemy"]:
         say("  uwaga: " + problem["message"])
-    config.save(dict(config.load(), model=model))
+    settings = dict(config.load(), model=model)
+    if "aktualizacje" not in settings:  # asked once; Szlif talks to nothing but the model without consent
+        settings["aktualizacje"] = ask("Sprawdzać przy starcie, czy jest nowa wersja Szlifu? Jedno zapytanie do "
+                                       "GitHuba raz na dobę, bez wysyłania tekstów.")
+    config.save(settings)
     say("Gotowe. Uruchom: %s" % COMMAND)
     return 0
 

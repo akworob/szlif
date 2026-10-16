@@ -304,6 +304,20 @@ class Stan(unittest.TestCase):
         self.assertIn("Brak modelu", st["blad"])
         self.assertIn("instaluj", st["blad"])
 
+    def test_stan_reports_new_version(self):
+        info = {"wersja": "99.0.0", "adres": "https://github.com/akworob/szlif/releases"}
+        server = make_server(FakeBackend(models=["m"]), "m", 0, update_info=info)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, args=(0.05,), daemon=True).start()
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            conn.request("GET", "/api/stan")
+            st = json.loads(conn.getresponse().read())
+        finally:
+            server.shutdown()
+            server.server_close()
+        self.assertEqual(st["aktualizacja"], info)
+
     def test_stan_lists_styles(self):
         with Running(FakeBackend(models=["m"])) as s:
             st = s.call("GET", "/api/stan")[1]

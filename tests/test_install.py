@@ -89,6 +89,7 @@ class Installer(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, {"SZLIF_CONFIG": os.path.join(folder.name, "szlif.json")})
         patcher.start()
         self.addCleanup(patcher.stop)
+        config.save({"aktualizacje": False})  # answered before; the question has its own test
         self.runs = []
 
     def run_cmd(self, cmd):
@@ -144,7 +145,7 @@ class Installer(unittest.TestCase):
         self.assertEqual(code, 1, out.getvalue())
         self.assertNotIn("Gotowe", out.getvalue())
         self.assertIn("more system memory", out.getvalue())
-        self.assertEqual(config.load(), {})
+        self.assertNotIn("model", config.load())
 
     def test_pull_resumes_after_a_break(self):  # measured: a 5 GB download stopped half way
         half = b'{"status": "pulling", "total": 100, "completed": 50}\n'
@@ -204,6 +205,23 @@ class Installer(unittest.TestCase):
         self.assertEqual(pulled, [small])
         self.assertIn("5,1 GB", out.getvalue())
         self.assertEqual(config.load()["model"], small)
+
+    def test_update_checks_asked_once(self):
+        config.save({})
+        routes = {("GET", "/api/version"): (200, {"version": "0.40.1"}, 0),
+                  ("GET", "/api/status"): (200, {"cloud": {"disabled": True}}, 0),
+                  ("GET", "/api/tags"): (200, {"models": [{"name": Q6}]}, 0),
+                  ("POST", "/api/chat"): CHAT}
+        asked = []
+
+        def ask(question):
+            asked.append(question)
+            return True
+        with FakeServer(routes) as s:
+            code = install.run_installer(s.url, ask, self.run_cmd, NOTHING, "Darwin", io.StringIO(), 32)
+        self.assertEqual(code, 0)
+        self.assertEqual(len([q for q in asked if "nowa wersja" in q]), 1)
+        self.assertIs(config.load()["aktualizacje"], True)
 
     def test_other_bielik_reused(self):
         other = "hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q5_K_M"

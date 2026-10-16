@@ -7,6 +7,8 @@ import unittest
 from unittest import mock
 
 import szlif
+import szlif_core
+from szlif_core import config
 from tests.fakes import FakeServer
 
 P1 = "Pierwszy akapit ma tutaj dość dużo słów, żeby model mógł go spokojnie przepisać bez kłopotu."
@@ -18,6 +20,44 @@ def ollama(reply):
     return {("GET", "/api/version"): (200, {"version": "0.40.1"}, 0),
             ("GET", "/api/tags"): (200, {"models": [{"name": "m"}]}, 0),
             ("POST", "/api/chat"): (200, {"message": {"content": reply}, "done_reason": "stop"}, 0)}
+
+
+class Aktualizacje(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        patcher = mock.patch.dict(os.environ, {"SZLIF_CONFIG": os.path.join(folder.name, "szlif.json")})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_aktualizuj_runs_the_update(self):
+        with mock.patch("szlif_core.update.run_update", return_value=0) as run_update:
+            self.assertEqual(szlif.main(["aktualizuj"]), 0)
+        run_update.assert_called_once()
+
+    def test_version_flag(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), self.assertRaises(SystemExit) as stop:
+            szlif.main(["--wersja"])
+        self.assertEqual(stop.exception.code, 0)
+        self.assertIn(szlif_core.__version__, out.getvalue())
+
+    def test_no_check_without_consent(self):  # Szlif talks to nothing but the model unless the user agreed
+        with mock.patch("szlif_core.update.latest_release") as latest:
+            self.assertIsNone(szlif.startup_update_check(lambda q: True, io.StringIO()))
+        latest.assert_not_called()
+
+    def test_check_with_consent_reports_and_stamps(self):
+        config.save({"aktualizacje": True})
+        release = {"wersja": "99.0.0", "adres": "https://github.com/akworob/szlif/releases", "zip": "z", "opis": ""}
+        out = io.StringIO()
+        with mock.patch("szlif_core.update.latest_release", return_value=release), \
+                mock.patch("szlif_core.update.run_update") as run_update:
+            info = szlif.startup_update_check(lambda q: False, out)
+        self.assertEqual(info["wersja"], "99.0.0")
+        self.assertIn("99.0.0", out.getvalue())
+        run_update.assert_not_called()  # the user answered "n"
+        self.assertIn("sprawdzono", config.load())
 
 
 class Instaluj(unittest.TestCase):
