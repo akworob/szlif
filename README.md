@@ -97,6 +97,57 @@ Strona wygląda na Windows tak samo jak na zrzutach powyżej. **Uczciwie:** na W
 - **Limit to 12 000 znaków.** Dłuższy tekst podziel na części.
 - **Akapity krótsze niż 12 słów zostają bez zmian.** Pojedyncze zdanie model lubi „uzupełniać” zmyśloną treścią.
 
+## Weryfikacja i automatyzacja
+
+Strażnik sprawdza liczby i długość zawsze tak samo, ale sensu nie rozumie. Dlatego Szlif przygotowuje prompt dla drugiego modelu. Ten model porównuje każdy przepisany akapit z oryginałem i odpowiada w jednym formacie: „Akapit N: BEZ ZMIAN” albo lista: co akapit po przepisaniu **DODAJE**, co **POMIJA** i co **ZMIENIA** (liczby, nazwy, pewność, zakres).
+
+### Na stronie: „Kopiuj do weryfikacji”
+
+Po przetworzeniu kliknij **Kopiuj do weryfikacji**. W schowku jest prompt z ponumerowanymi parami akapitów PRZED i PO oraz uwagami strażnika. Gdzie go wkleić:
+
+- **Lokalnie, do Bielika.** Tekst nie wychodzi z komputera:
+  - macOS: `ollama run hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q6_K "$(pbpaste)"`
+  - Windows (PowerShell, niesprawdzone): `ollama run hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q6_K (Get-Clipboard -Raw)`
+- **Do Claude, ChatGPT, Gemini albo Groka.** Wtedy tekst trafia do chmury, więc nie rób tego z tekstami poufnymi.
+
+**Uczciwie:** weryfikator też się myli. W naszym teście Bielik wyłapał dopisaną radę, zmianę „może” → „zawsze” i pominięcie, ale wypisywał też zmiany samego stylu. W innej wersji promptu (z tabelą) przeoczył dopisane zdanie. Lepszą drugą parą oczu jest model inny niż ten, który przepisywał. Ostatnie słowo i tak należy do człowieka.
+
+### Z wiersza poleceń: skrypty i agenci
+
+```
+python3 szlif.py przepisz tekst.txt --wynik wynik.txt --raport raport.json --weryfikacja prompt.txt --sprawdz
+```
+
+- **`--tryb prosty|standardowy|wzmocniony`**: liczba rund, domyślnie standardowy.
+- **`--wynik PLIK`**: zapis wyniku do pliku; domyślnie standardowe wyjście. `-` zamiast pliku wejściowego oznacza standardowe wejście, np. `pbpaste | python3 szlif.py przepisz - | pbcopy`.
+- **`--raport PLIK`**: raport w JSON. Zawiera:
+  - `akapity`, a w każdym: `numer`, `przed`, `po`, `problemy` i `powod`;
+  - `problemy`, czyli liczby sprawdzone na całym tekście;
+  - `czyszczenie` i `ostrzezenia`;
+  - `weryfikacja`, gdy użyto `--sprawdz`.
+- **`--weryfikacja PLIK`**: prompt dla drugiego modelu.
+- **`--sprawdz`**: model od razu sprawdza sens, lokalnie. Inny model z Ollamy wskażesz przez `--model-weryfikatora NAZWA`.
+- **`--serwer`, `--model`**: jak przy stronie.
+- **Kod wyjścia:** 0 to brak ostrzeżeń strażnika, 3 to ostrzeżenia do przeczytania, 1 to błąd. Odpowiedź weryfikatora nie zmienia kodu wyjścia, bo to tekst do przeczytania, a nie werdykt.
+- **Brak limitu długości.** W wierszu poleceń nie obowiązuje limit 12 000 znaków, bo każdy akapit idzie do modelu osobno.
+
+### Prompt dla agenta (Claude Code, Codex, Gemini CLI i podobne)
+
+Agent działający na Twoim komputerze może sam uruchomić Szlif i sprawdzić wynik. Przykładowe polecenie dla niego:
+
+```
+Przepisz plik tekst.txt Szlifem i sprawdź, czy nie zmienił się sens ani liczby.
+1. Uruchom: python3 szlif.py przepisz tekst.txt --wynik wynik.txt --raport raport.json --sprawdz
+   (kod wyjścia 3 oznacza ostrzeżenia strażnika, a nie błąd).
+2. Przeczytaj raport.json. Najpierw akapity z ostrzeżeniem (pola "problemy" i "powod") i punkty z pola "weryfikacja".
+3. Potem sam porównaj każdą parę "przed" i "po": liczby, jednostki, daty, nazwy, pewność („może” → „jest”),
+   zakres („czasami” → „zawsze”), treść dopisaną i pominiętą.
+4. Niczego nie poprawiaj w wynik.txt. Zwróć listę: numer akapitu, co się zmieniło (dokładne cytaty), waga.
+   Jeśli nic się nie zmieniło, napisz: BEZ ZMIAN SENSU.
+```
+
+Agent z modelem w chmurze wysyła treść pliku do swojego dostawcy. Przy tekstach poufnych zostań przy `--sprawdz` z lokalnym modelem.
+
 ## Zewnętrzny serwer
 
 Model nie musi działać na tym samym komputerze.
