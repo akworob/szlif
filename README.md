@@ -140,7 +140,11 @@ Po przetworzeniu kliknij **Sprawdź Bielikiem**. Model wybrany na liście **Mode
 
 ![Panel „Sprawdzenie sensu” nad kolumnami Przed i Po](docs/zrzuty/3-sprawdzenie.png)
 
-Ten zrzut to prawdziwy przebieg i dobry przykład, dlaczego czytasz sam. Bielik uznał oba akapity za „BEZ ZMIAN”, choć w akapicie 2 dopisał od siebie „dla wszystkich chętnych” i zmienił „bardzo duże zainteresowanie” na zdanie przyczynowe („tak duże, że”). Strażnik też tego nie zgłosił, bo dopisek jest krótki i nie zawiera liczb.
+Ten zrzut to prawdziwy przebieg (wersja 0.2.0) i dobry przykład, dlaczego czytasz sam:
+
+- **Akapit 2:** Bielik dopisał od siebie „co najlepiej pokazuje, jak bardzo było popularne”. Strażnik tego nie zgłosił, bo dopisek nie ma liczb, a akapit urósł za mało, żeby przekroczyć próg długości. Znalazło go dopiero „Sprawdź Bielikiem”.
+- **Akapit 3:** ostrzeżenie strażnika („Brakuje: można”) to fałszywy alarm, bo „można kupić” → „są dostępne” nie zmienia pewności.
+- **Bez gwarancji:** w przebiegu tego samego tekstu na wersji 0.1.0 było odwrotnie. Bielik dopisał wtedy „dla wszystkich chętnych”, a sprawdzając, uznał oba akapity za „BEZ ZMIAN”.
 
 ### Na stronie: „Kopiuj do weryfikacji”
 
