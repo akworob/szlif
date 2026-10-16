@@ -170,6 +170,22 @@ class Installer(unittest.TestCase):
         self.assertIn("uwaga:", out.getvalue())
         self.assertIn("Gotowe", out.getvalue())
 
+    def test_forced_model_pulled(self):  # --model: check a download without touching the installed Bielik
+        small = "hf.co/speakleash/Bielik-4.5B-v3.0-Instruct-GGUF:Q8_0"
+        routes = {("GET", "/api/version"): (200, {"version": "0.40.1"}, 0),
+                  ("GET", "/api/status"): (200, {"cloud": {"disabled": True}}, 0),
+                  ("GET", "/api/tags"): (200, {"models": [{"name": Q6}]}, 0),
+                  ("POST", "/api/pull"): (200, b'{"status": "success"}\n', 0),
+                  ("POST", "/api/chat"): CHAT}
+        out = io.StringIO()
+        with FakeServer(routes) as s:
+            code = install.run_installer(s.url, lambda q: True, self.run_cmd, NOTHING, "Darwin", out, 32, model=small)
+            pulled = [r[3]["model"] for r in s.requests if r[1] == "/api/pull"]
+        self.assertEqual(code, 0, out.getvalue())
+        self.assertEqual(pulled, [small])
+        self.assertIn("5,1 GB", out.getvalue())
+        self.assertEqual(config.load()["model"], small)
+
     def test_other_bielik_reused(self):
         other = "hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q5_K_M"
         routes = {("GET", "/api/version"): (200, {"version": "0.40.1"}, 0),

@@ -59,6 +59,14 @@ Próba na krótkim akapicie…
 Gotowe. Uruchom: python3 szlif.py
 ```
 
+**Uczciwie o instalatorze:** na macOS był uruchamiany naprawdę tylko na komputerze, na którym Ollama i Bielik już były. Instalację Ollamy przez Homebrew i pobieranie modelu sprawdzają testy automatyczne, ale nie przejście „od zera” na czystym Macu. Pobieranie możesz sprawdzić u siebie, nie ruszając zainstalowanego Bielika: każ instalatorowi pobrać mniejszy model (około 5 GB):
+
+```
+python3 szlif.py instaluj --model hf.co/speakleash/Bielik-4.5B-v3.0-Instruct-GGUF:Q8_0
+```
+
+Instalator zapamięta wtedy ten model jako domyślny. Powrót do poprzedniego modelu: uruchom instalator jeszcze raz z jego nazwą w `--model`, albo wybierz go na liście **Model** na stronie.
+
 ![Strona z wklejonym tekstem i opcjami](docs/zrzuty/1-tekst.png)
 
 ## Szybki start: Windows
@@ -281,7 +289,7 @@ Szlif nie jest narzędziem do omijania detektorów, a w tym teście wcale ich ni
 | 12–24 GB | Bielik 11B v3.0, `Q4_K_M` | 6,7 GB |
 | mniej niż 12 GB | Bielik 4.5B v3.0, `Q8_0` (niższa jakość) | 5,1 GB |
 
-Inny model wskażesz przez `--model`. Lista na stronie pokazuje wszystkie modele zainstalowane w Ollamie.
+Inny model wskażesz przez `--model`, przy stronie i przy instalatorze (`python3 szlif.py instaluj --model NAZWA`). Lista na stronie pokazuje wszystkie modele zainstalowane w Ollamie.
 
 ## Testy
 

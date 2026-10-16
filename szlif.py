@@ -47,6 +47,8 @@ def parse_args(argv: Optional[List[str]]) -> argparse.Namespace:
     sub = p.add_subparsers(dest="polecenie")
     installer = sub.add_parser("instaluj", help="instaluje Ollamę i pobiera Bielika")
     installer.add_argument("--serwer", default=argparse.SUPPRESS, help="adres Ollamy (domyślnie lokalna)")
+    installer.add_argument("--model", default=argparse.SUPPRESS,
+                           help="zainstaluj ten model zamiast dobranego do pamięci RAM")
     rw = sub.add_parser("przepisz", help="przepisuje plik akapit po akapicie (dla skryptów i agentów)",
                         description="Kod wyjścia: 0 bez ostrzeżeń, 3 są ostrzeżenia (przeczytaj je), 1 błąd.")
     rw.add_argument("plik", help="plik tekstowy UTF-8 albo - (standardowe wejście)")
@@ -165,7 +167,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.polecenie == "instaluj":
         from szlif_core import install
         try:
-            return install.main(args.serwer)
+            return install.main(args.serwer, args.model)
         except KeyboardInterrupt:
             print("\nPrzerwano.")
             return 1

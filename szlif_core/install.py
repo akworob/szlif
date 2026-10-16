@@ -155,7 +155,10 @@ def pull(base_url: str, model: str, out: TextIO) -> None:
 
 
 def run_installer(base_url: str, ask: Callable[[str], bool], run: Callable[[List[str]], int],
-                  which: Which, system: str, out: TextIO, ram: Optional[float]) -> int:
+                  which: Which, system: str, out: TextIO, ram: Optional[float],
+                  model: Optional[str] = None) -> int:
+    """model: a model to install instead of the one chosen by RAM (`instaluj --model`), e.g. to
+    check a download on a computer that already has another Bielik."""
     def say(text: str = "") -> None:
         print(text, file=out, flush=True)
 
@@ -207,16 +210,21 @@ def run_installer(base_url: str, ask: Callable[[str], bool], run: Callable[[List
         elif cloud:
             say("Funkcje chmurowe Ollamy są wyłączone.")
 
-    model, size = choose_model(ram)
-    say("Pamięć RAM: %s. Model dla tego komputera: %s (%s)."
-        % ("%.0f GB" % ram if ram else "nieznana", model, size))
+    forced = model is not None
+    if forced:
+        size = next((s for _, m, s in MODELS if m == model), "rozmiar nieznany")
+        say("Model wskazany ręcznie: %s (%s)." % (model, size))
+    else:
+        model, size = choose_model(ram)
+        say("Pamięć RAM: %s. Model dla tego komputera: %s (%s)."
+            % ("%.0f GB" % ram if ram else "nieznana", model, size))
     try:
         installed = backend.list_models()
     except BackendError as e:
         say(str(e))
         return 1
     if model not in installed:
-        other = next((m for m in installed if "bielik" in m.lower()), None)
+        other = None if forced else next((m for m in installed if "bielik" in m.lower()), None)
         if other:
             model = other
             say("Używam Bielika, który już jest: %s." % model)
@@ -250,6 +258,6 @@ def run_installer(base_url: str, ask: Callable[[str], bool], run: Callable[[List
     return 0
 
 
-def main(base_url: str) -> int:
+def main(base_url: str, model: Optional[str] = None) -> int:
     return run_installer(base_url, ask_yes, lambda cmd: subprocess.call(cmd), shutil.which,
-                         platform.system(), sys.stdout, ram_gb())
+                         platform.system(), sys.stdout, ram_gb(), model)

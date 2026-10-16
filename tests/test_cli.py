@@ -20,6 +20,13 @@ def ollama(reply):
             ("POST", "/api/chat"): (200, {"message": {"content": reply}, "done_reason": "stop"}, 0)}
 
 
+class Instaluj(unittest.TestCase):
+    def test_model_option_reaches_installer(self):
+        with mock.patch("szlif_core.install.main", return_value=0) as installer:
+            self.assertEqual(szlif.main(["instaluj", "--model", "m"]), 0)
+        installer.assert_called_once_with("http://127.0.0.1:11434", "m")
+
+
 class Przepisz(unittest.TestCase):
     def setUp(self):
         folder = tempfile.TemporaryDirectory()
