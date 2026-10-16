@@ -128,6 +128,29 @@ def _wait_up(base_url: str, seconds: int = 30) -> bool:
     return _up(base_url)
 
 
+class PullRefused(BackendError):
+    """Ollama itself refused the pull (no such model, no disk space): trying again will not help."""
+
+
+RETRY_ATTEMPTS, RETRY_WAIT = 5, 10  # seconds between attempts; Ollama resumes a partial download
+
+
+def pull_with_retry(base_url: str, model: str, out: TextIO) -> None:
+    """pull(), tried again when the connection breaks off. Measured: a 5 GB pull stopped half way
+    and stayed there; asked again, Ollama goes on from where it stopped."""
+    for attempt in range(1, RETRY_ATTEMPTS + 1):
+        try:
+            return pull(base_url, model, out)
+        except PullRefused:
+            raise
+        except BackendError as e:
+            if attempt == RETRY_ATTEMPTS:
+                raise
+            print("\nPobieranie przerwane (%s); ponawiam (%d z %d) za %d s, od miejsca przerwania."
+                  % (e, attempt + 1, RETRY_ATTEMPTS, RETRY_WAIT), file=out, flush=True)
+            time.sleep(RETRY_WAIT)
+
+
 def pull(base_url: str, model: str, out: TextIO) -> None:
     """Pull a model through Ollama's API, printing one line of progress."""
     backend = OllamaBackend(base_url)
@@ -141,7 +164,7 @@ def pull(base_url: str, model: str, out: TextIO) -> None:
                     continue
                 event = json.loads(raw)
                 if event.get("error"):
-                    raise BackendError("Ollama nie pobrała modelu: %s" % event["error"])
+                    raise PullRefused("Ollama nie pobrała modelu: %s" % event["error"])
                 total, done = event.get("total"), event.get("completed")
                 if total and done is not None:
                     print("\r%s %d%%   " % (event.get("status", ""), done * 100 // total), end="", file=out, flush=True)
@@ -230,7 +253,7 @@ def run_installer(base_url: str, ask: Callable[[str], bool], run: Callable[[List
             say("Używam Bielika, który już jest: %s." % model)
         elif ask("Pobrać model %s (%s)?" % (model, size)):
             try:
-                pull(base_url, model, out)
+                pull_with_retry(base_url, model, out)
             except BackendError as e:
                 say(str(e))
                 return 1

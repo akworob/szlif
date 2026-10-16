@@ -146,6 +146,25 @@ class Installer(unittest.TestCase):
         self.assertIn("more system memory", out.getvalue())
         self.assertEqual(config.load(), {})
 
+    def test_pull_resumes_after_a_break(self):  # measured: a 5 GB download stopped half way
+        half = b'{"status": "pulling", "total": 100, "completed": 50}\n'
+        done = b'{"status": "pulling", "total": 100, "completed": 100}\n{"status": "success"}\n'
+        routes = {("POST", "/api/pull"): [(200, half, 0), (200, done, 0)]}
+        out = io.StringIO()
+        with FakeServer(routes) as s, mock.patch.object(install, "RETRY_WAIT", 0):
+            install.pull_with_retry(s.url, Q6, out)
+            pulls = [r for r in s.requests if r[1] == "/api/pull"]
+        self.assertEqual(len(pulls), 2)
+        self.assertIn("ponawiam", out.getvalue())
+        self.assertIn("Pobrano", out.getvalue())
+
+    def test_pull_refused_is_not_retried(self):
+        routes = {("POST", "/api/pull"): (200, b'{"error": "pull model manifest: file does not exist"}\n', 0)}
+        with FakeServer(routes) as s, mock.patch.object(install, "RETRY_WAIT", 0):
+            with self.assertRaisesRegex(Exception, "file does not exist"):
+                install.pull_with_retry(s.url, "nie-ma", io.StringIO())
+            self.assertEqual(len([r for r in s.requests if r[1] == "/api/pull"]), 1)
+
     def test_pull_without_success_fails(self):
         routes = {("GET", "/api/version"): (200, {"version": "0.40.1"}, 0),
                   ("GET", "/api/status"): (200, {"cloud": {"disabled": True}}, 0),
@@ -153,7 +172,7 @@ class Installer(unittest.TestCase):
                   ("POST", "/api/pull"): (200, b'{"status": "pulling", "total": 100, "completed": 50}\n', 0),
                   ("POST", "/api/chat"): CHAT}
         out = io.StringIO()
-        with FakeServer(routes) as s:
+        with FakeServer(routes) as s, mock.patch.object(install, "RETRY_WAIT", 0):
             code = install.run_installer(s.url, lambda q: True, self.run_cmd, NOTHING, "Darwin", out, 32)
         self.assertEqual(code, 1, out.getvalue())
         self.assertNotIn("Gotowe", out.getvalue())
