@@ -8,9 +8,9 @@ Szlif przepisuje polski tekst modelem Bielik i czyści go z ukrytych znaków. Mo
 
 ## Co robi
 
-- **Przepisywanie Bielikiem.** Jedna, dwie albo trzy rundy: rytm zdań, słownictwo, przejścia między zdaniami. Model działa lokalnie przez [Ollamę](https://ollama.com).
+- **Przepisywanie Bielikiem.** Akapit po akapicie, w jednej, dwóch albo trzech rundach: rytm zdań, słownictwo, przejścia między zdaniami. Nagłówki, listy i akapity krótsze niż 12 słów zostają bez zmian. Model działa lokalnie przez [Ollamę](https://ollama.com).
 - **Czyszczenie ukrytych znaków.** Usuwa spacje o zerowej szerokości, znacznik BOM, miękkie dywizy, znaki sterujące kierunkiem tekstu i ukryty tekst ze znaków „tag”. Nietypowe spacje zamienia na zwykłe. Litery z cyrylicy lub greki udające łacińskie zamienia na łacińskie, ale tylko wewnątrz słów, które mają też litery łacińskie. Na życzenie zamienia myślniki na przecinki. Każda zmiana jest widoczna na stronie jako pomarańczowa etykieta. Czyszczenie działa także bez modelu.
-- **Strażnik liczb.** Ostrzega, gdy w wyniku brakuje liczby, jednostki, daty albo godziny z oryginału albo gdy pojawiła się nowa.
+- **Strażnik.** Ostrzega, gdy w wyniku brakuje liczby, jednostki, daty albo godziny z oryginału albo gdy pojawiła się nowa. Ostrzega też, gdy akapit wyraźnie się skrócił (poniżej 70% słów) albo urósł (powyżej 140%), gdy zmieniła się liczba akapitów i gdy wynik zaczyna mówić o samym tekście („rytm”, „zdania”). To ostatnie znaczy zwykle, że do tekstu przeciekło polecenie dla modelu.
 
 ## Czego Szlif nie robi
 
@@ -88,14 +88,14 @@ Strona wygląda na Windows tak samo jak na zrzutach powyżej. **Uczciwie:** na W
   - Pomarańczowe etykiety: wyczyszczone znaki. Najedź na etykietę, żeby zobaczyć nazwę znaku.
   - Żółte podkreślenie: wartość, której nie ma w wyniku.
 - **Prawa kolumna to wynik.** Na zielono jest to, co doszło.
-- **Nad kolumnami** widać, co wyczyszczono, ostrzeżenia strażnika i powód, dla którego seria rund się zatrzymała.
+- **Nad kolumnami** widać, co wyczyszczono, ostrzeżenia o liczbach (zaznaczone też w tekście) i notatki przy konkretnych akapitach, np. „Akapit 4 (…)”, z powodem ostrzeżenia.
 - **Tryby:**
   - prosty (1 runda: rytm zdań);
   - standardowy (2 rundy: plus słownictwo);
   - wzmocniony (3 rundy: plus przejścia).
-- **Każdą rundę porównujemy z oryginałem**, a seria zatrzymuje się na pierwszym ostrzeżeniu. Runda 1 z ostrzeżeniem zostaje pokazana, żebyś sam zdecydował. Późniejsza runda z ostrzeżeniem jest odrzucana i zostaje runda przed nią. Przy długich tekstach seria często kończy się na rundzie 1. Tak ma być, bo każda kolejna runda po ostrzeżeniu tylko dokłada ryzyka.
+- **Każdy akapit przechodzi rundy osobno**, a każdą rundę porównujemy z jego oryginałem. Seria zatrzymuje się na pierwszym ostrzeżeniu. Runda 1 z ostrzeżeniem zostaje pokazana, żebyś sam zdecydował. Późniejsza runda z ostrzeżeniem jest odrzucana i zostaje runda przed nią. Seria kończy się też wtedy, gdy runda niczego nie zmienia.
 - **Limit to 12 000 znaków.** Dłuższy tekst podziel na części.
-- **Daj modelowi co najmniej akapit.** Pojedyncze zdanie model lubi „uzupełniać” zmyśloną treścią. Strażnik ostrzega wtedy, że wynik jest dużo dłuższy od tekstu.
+- **Akapity krótsze niż 12 słów zostają bez zmian.** Pojedyncze zdanie model lubi „uzupełniać” zmyśloną treścią.
 
 ## Zewnętrzny serwer
 
@@ -138,6 +138,36 @@ Strażnik liczb **nie sprawdza**:
 - rzeczownika po liczbie. Zmiana „5 osób” → „5 rodzin” przejdzie bez ostrzeżenia.
 
 Ostrzega za to przy każdej zmianie zapisu liczby, nawet gdy wartość jest ta sama (np. `12,5` → `12.5`, `12.03.2026` → `12 marca 2026`). Lepszy fałszywy alarm niż przeoczenie.
+
+### Test na artykule medycznym (październik 2026)
+
+Szlif sprawdziliśmy na publicznym artykule medycznym. Ma około 1000 słów i 47 bloków (nagłówki, akapity, lista), a nie ma w nim liczb, więc strażnik liczb nie miał czego pilnować.
+
+- **Cały tekst naraz** (pierwsza wersja Szlifa) dał streszczenie zamiast przepisania: 420 słów zamiast 1035 i 7 bloków zamiast 47.
+  - Przypuszczenia zmieniły się w pewniki („może dostarczyć informacji” → „potwierdza”).
+  - Rundy 2 i 3 nie zmieniły ani słowa.
+
+  Dlatego Szlif pracuje teraz akapit po akapicie.
+- **Akapit po akapicie** treść zostaje, ale model chętnie coś *dopisuje*:
+  - odpowiedział na pytanie z tekstu trzema zmyślonymi akapitami;
+  - wstawił zdanie z własnego polecenia;
+  - dodał radę sprzeczną z oryginałem.
+
+  Po tym teście strażnik pilnuje też długości, liczby akapitów i „komentarzy o tekście”. W powtórce zgłosił 7 z 31 przepisanych akapitów: w 5 model dopisał treść już w rundzie 1 (204–294% słów), a w 2 strażnik odrzucił rundę 2. Wszystkie 7 zgłoszeń było trafnych.
+- **Teksty medyczne, prawne i finansowe** nie nadają się do publikacji bez sprawdzenia przez eksperta. Zmiana „może” na „często” to w nich zmiana faktu.
+
+### Detektory AI
+
+Szlif nie jest narzędziem do omijania detektorów, a w tym teście wcale ich nie omijał:
+
+| Tekst | ZeroGPT | GPTZero |
+|---|---|---|
+| Oryginał artykułu | 64% AI | 0% AI („człowiek” 73%) |
+| Po Szlifie, cały tekst naraz | 92,6% AI | 51% AI („człowiek” 2%) |
+| Po Szlifie, akapit po akapicie | 83% AI | 4% AI („człowiek” 51%) |
+
+- **Detektory przeczą sobie nawzajem.** Ten sam oryginał dostał 64% AI w jednym i 0% AI w drugim. Niezależnych badań ich skuteczności dla polskiego tekstu nie znaleźliśmy.
+- **Krótkie fragmenty nic nie mówią.** Dwa zdania oryginału i dwa zdania po Szlifie dostały w ZeroGPT po 0% AI, a GPTZero ocenił ten sam fragment po Szlifie na 100% AI.
 
 ## Znaki wodne i AI Act
 

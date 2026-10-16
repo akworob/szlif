@@ -263,3 +263,22 @@ Zrzuty ekranu z macOS w `docs/zrzuty/`: strona z wklejonym tekstem i wynik z ety
 - Dokładne brzmienie promptów, w granicach z 4.4.
 - Uruchamianie Ollamy w przypadkach niewymienionych w 4.7.
 - Miejsce pliku konfiguracyjnego użytkownika.
+
+## 8. Zmiany po pierwszym teście (2026-10-16, decyzja użytkownika)
+
+Test na publicznym artykule medycznym (ok. 1000 słów, bez liczb) pokazał trzy rzeczy. Po pierwsze, cały tekst naraz wraca jako streszczenie: 47 bloków zmieniło się w 7. Po drugie, rundy 2 i 3 potrafią zwrócić tekst bez jednej zmiany. Po trzecie, model dopisuje treść: odpowiada na pytanie z tekstu, wstawia fragment własnego polecenia i dodaje radę. Strażnik liczb nie widział żadnej z tych rzeczy. **[ustalone]**:
+
+- **Praca akapit po akapicie** (zastępuje „nie dzielimy automatycznie” z 4.4).
+  - Tekst dzielimy na bloki po pustych wierszach.
+  - Przepisujemy tylko akapity prozy (co najmniej 12 słów, bez znaczników listy). Nagłówki, listy i krótkie bloki zostają bez zmian.
+  - Rundy, strażnik i reguła stopu działają osobno dla każdego akapitu.
+  - Strona podaje postęp („Akapit 3 z 31 · runda 1 z 2”) i notatki przy akapitach.
+  - Liczby sprawdzamy na całym tekście i zaznaczamy je w kolumnie Przed.
+- **Strażnik, nowe ostrzeżenia** (uzupełnienie 4.5):
+  - wynik dłuższy niż max(1,4 × słowa, słowa + 6);
+  - wynik krótszy niż 0,7 × słowa (dla akapitów od 8 słów);
+  - zmieniona liczba akapitów;
+  - słowa o samym tekście („rytm”, „zdania”, „tekst”, „przepis…”, „akapit”, „redakc…”), których nie ma w oryginale.
+- **Runda, która zwraca tekst bez zmian, kończy serię** bez ostrzeżenia.
+- **Instalator** traktuje ostrzeżenie strażnika przy próbie jako informację, a jako awarię tylko brak tekstu.
+- **README** opisuje wynik testu i detektorów, a także ostrzega przed publikowaniem tekstów medycznych, prawnych i finansowych bez eksperta.
