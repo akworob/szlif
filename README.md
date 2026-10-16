@@ -112,6 +112,10 @@ Po przetworzeniu kliknij **Sprawdź Bielikiem**. Model wybrany na liście **Mode
 - **Lepiej sprawdza inny model** niż ten, który przepisywał. Wybierz go na liście **Model** przed kliknięciem. Jeśli masz tylko Bielika, drugą parą oczu może być model w chmurze przez „Kopiuj do weryfikacji”.
 - Odpowiedź to lista miejsc do przeczytania, a nie werdykt. Gdy model urwie odpowiedź na limicie długości, strona to napisze.
 
+![Panel „Sprawdzenie sensu” nad kolumnami Przed i Po](docs/zrzuty/3-sprawdzenie.png)
+
+Ten zrzut to prawdziwy przebieg i dobry przykład, dlaczego czytasz sam. Bielik uznał oba akapity za „BEZ ZMIAN”, choć w akapicie 2 dopisał od siebie „dla wszystkich chętnych” i zmienił „bardzo duże zainteresowanie” na zdanie przyczynowe („tak duże, że”). Strażnik też tego nie zgłosił, bo dopisek jest krótki i nie zawiera liczb.
+
 ### Na stronie: „Kopiuj do weryfikacji”
 
 Po przetworzeniu kliknij **Kopiuj do weryfikacji**. W schowku jest prompt z ponumerowanymi parami akapitów PRZED i PO oraz uwagami strażnika. Gdzie go wkleić:
