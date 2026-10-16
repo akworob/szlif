@@ -1,6 +1,6 @@
 import unittest
 
-from szlif_core.backends import BackendError, Reply
+from szlif_core.backends import BackendError, Reply, Unreachable
 from szlif_core.process import process_text
 from tests.fakes import FakeBackend
 
@@ -34,9 +34,16 @@ class Process(unittest.TestCase):
         process_text(backend, "m", TEXT, rounds=2, progress=lambda done, todo, rnd: seen.append((done, todo, rnd)))
         self.assertEqual(seen, [(1, 2, 1), (1, 2, 2), (2, 2, 1)])
 
-    def test_round1_error_raises(self):
-        with self.assertRaises(BackendError):
-            process_text(FakeBackend([BackendError("x")]), "m", TEXT, rounds=1)
+    def test_one_paragraph_error_keeps_the_rest(self):  # review: one failed paragraph lost the whole run
+        backend = FakeBackend([BackendError("Model zwrócił pusty tekst."), Reply(P2, False)])
+        r = process_text(backend, "m", TEXT, rounds=1)
+        self.assertEqual(r["wynik"], TEXT)  # first paragraph kept as it was, second unchanged
+        self.assertIn("pusty tekst", r["akapity"][0]["powod"])
+        self.assertEqual(r["ostrzezenia"], 1)
+
+    def test_unreachable_stops_the_run(self):
+        with self.assertRaises(Unreachable):
+            process_text(FakeBackend([Unreachable("brak serwera")]), "m", TEXT, rounds=1)
 
     def test_value_moved_between_paragraphs_reported(self):  # review: the whole-text count hides it
         p1 = "Zniżka dla studentów wynosi 30% na wszystkie bilety kupione w kasie przed seansem w kinie."

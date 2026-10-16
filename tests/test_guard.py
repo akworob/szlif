@@ -20,6 +20,9 @@ class Values(unittest.TestCase):
             with self.subTest(a=a, b=b):
                 self.assertNotEqual(key(a), key(b))
 
+    def test_weeks_abbreviated(self):  # review: "2 tygodnie" -> "2 tyg." was a false alarm
+        self.assertEqual(key("2 tygodnie"), key("2 tyg."))
+
     def test_symbolic_units(self):
         self.assertEqual(key("5 kWh, 20 °C, 3 CO2"), ["5 kWh", "20 °C", "3 CO2"])
 

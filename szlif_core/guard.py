@@ -79,7 +79,7 @@ CANON = [
     (r"€|EUR|euro", "EUR"), (r"\$|USD|dolar\w*", "USD"),
     (r"tys\.|tysi\w*", "tys."), (r"mln|milion\w*", "mln"), (r"mld|miliard\w*", "mld"),
     (r"s|sek\.|sekund\w*", "s"), (r"min\.?|minut\w*", "min"), (r"h|godz\.|godzin\w*", "godz."),
-    (r"dni\w*|dzień|dnia|dniu", "dni"), (r"tydz\.|tydzień|tygodni\w*", "tydz."),
+    (r"dni\w*|dzień|dnia|dniu", "dni"), (r"tydz\.|tyg\.|tydzień|tygodni\w*", "tydz."),
     (r"mies\.|miesi\w*", "mies."), (r"r\.|rok\w*|roku|lat\w*|lata", "lat"),
     (r"szt\.?|sztuk\w*", "szt."), (r"km|kilometr\w*", "km"), (r"kg|kilogram\w*", "kg"),
 ] + [(m, m) for m in MONTHS.split()] + [(u, u) for u in ("m", "cm", "mm", "g", "t", "l", "ml")]

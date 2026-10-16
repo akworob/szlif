@@ -159,6 +159,7 @@ const NAMES = {
   "pełna-szerokość": "znak pełnej szerokości", ukryty: "ukryty tekst", "—": "myślnik", "–": "półpauza",
 };
 let limit = 12000, finalText = "", controller = null, toVerify = null, rewrittenWith = null;
+let cloudModels = [], stateError = false;
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -179,7 +180,11 @@ async function api(path, body, signal) {
   }
   let data;
   try { data = await resp.json(); } catch (e) { throw new Error("Serwer Szlifu odpowiedział nieoczekiwanie (" + resp.status + ")."); }
-  if (!resp.ok) throw new Error(data.blad || ("Błąd " + resp.status));
+  if (!resp.ok) {
+    const error = new Error(data.blad || ("Błąd " + resp.status));
+    error.status = resp.status;
+    throw error;
+  }
   return data;
 }
 
@@ -221,6 +226,9 @@ async function loadState() {
     banners.append(box);
   }
   $("wersja").textContent = st.wersja ? "Szlif " + st.wersja + ". " : "";
+  cloudModels = st.modele_w_chmurze || [];
+  stateError = !!st.blad;
+  setTimeout(cloudWarning, 0);
   fillChoices($("czytelnosc"), st.czytelnosci || [], remembered("czytelnosc"));
   fillChoices($("cel"), st.cele || [], remembered("cel"));
   const select = $("model");
@@ -345,7 +353,16 @@ async function rewriteBlock(base, block, rounds, model, signal, progress) {
   let current = null, cut = false, problems = [], reason = null;
   for (let r = 1; r <= rounds; r++) {
     progress(r);
-    const res = await api("/api/runda", Object.assign({}, base, {tekst: block.tekst, biezacy: current, runda: r, model}), signal);
+    let res;
+    try {
+      res = await api("/api/runda", Object.assign({}, base, {tekst: block.tekst, biezacy: current, runda: r, model}), signal);
+    } catch (e) {
+      // No server (503), a lost connection or Przerwij stop the whole run; any other error costs
+      // only this paragraph, which stays as it was.
+      if (e.name === "AbortError" || !e.status || e.status === 503) throw e;
+      reason = "Akapit nie został przepisany: " + e.message;
+      break;
+    }
     if (res.przyjeta) {
       current = res.tekst;
       cut = res.problemy.some((p) => p.kind === "cut");
@@ -457,6 +474,20 @@ async function checkMeaning() {
 }
 
 $("tekst").addEventListener("input", updateCount);
+// A model run by Ollama in its cloud sends the text off this computer: say so while it is chosen.
+function cloudWarning() {
+  const old = $("chmura-model");
+  if (old) old.remove();
+  if (!cloudModels.includes($("model").value)) return;
+  const box = el("div", "banner remote", "Model „" + $("model").value + "” działa w chmurze Ollamy: tekst wyjdzie z komputera.");
+  box.id = "chmura-model";
+  $("banners").append(box);
+}
+$("model").addEventListener("change", cloudWarning);
+// Started Ollama after opening the page? Coming back to the tab reads the state again.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && stateError && controller === null) loadState();
+});
 for (const name of ["tryb", "czytelnosc", "cel"]) $(name).addEventListener("change", () => remember(name, $(name).value));
 if (remembered("tryb")) $("tryb").value = remembered("tryb");
 $("model").addEventListener("change", updateCount);

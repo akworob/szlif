@@ -5,7 +5,7 @@ import json
 import threading
 import unittest
 
-from szlif_core.backends import BackendError, Reply
+from szlif_core.backends import BackendError, Reply, Unreachable
 from szlif_core.server import make_server
 from tests.fakes import FakeBackend
 
@@ -65,6 +65,26 @@ class Security(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("Szlif", body)
         self.assertIn("default-src 'self'", resp.getheader("Content-Security-Policy"))
+
+    def test_csp_forbids_framing(self):  # review: clickjacking
+        with Running(FakeBackend()) as s:
+            self.assertIn("frame-ancestors 'none'", s.call("GET", "/")[2].getheader("Content-Security-Policy"))
+
+    def test_bad_content_length(self):  # review: a non-numeric length dropped the connection
+        with Running(FakeBackend()) as s:
+            status = s.call("POST", "/api/widok", widok(tekst="a"), {"Content-Length": "abc"})[0]
+        self.assertEqual(status, 400)
+
+    def test_unexpected_error_is_500_json(self):  # review: any exception closed the connection silently
+        class Broken(FakeBackend):
+            def chat(self, model, system, user):
+                raise RuntimeError("boom")
+        err = io.StringIO()
+        with Running(Broken()) as s, contextlib.redirect_stderr(err):
+            status, r, _ = s.call("POST", "/api/runda", runda(tekst="Ala ma kota."))
+        self.assertEqual(status, 500)
+        self.assertIn("Nieoczekiwany błąd", r["blad"])
+        self.assertNotIn("Ala", err.getvalue())
 
     def test_favicon_no_content(self):
         with Running(FakeBackend()) as s:
@@ -126,6 +146,17 @@ class Widok(unittest.TestCase):
                                                    wynik="Zmiany technologiczne."))[1]
         self.assertEqual(v["znikniete"], ["ekonomiczne", "społeczne"])
         self.assertTrue(any(seg.get("lost") for seg in v["przed"]))
+
+    def test_widok_nfd_input_no_phantom_diff(self):  # review: some PDF copies use decomposed letters
+        import unicodedata
+        tekst = unicodedata.normalize("NFD", "Zażółć gęślą jaźń.")
+        with Running(FakeBackend()) as s:
+            v = s.call("POST", "/api/widok", widok(tekst=tekst, wynik="Zażółć gęślą jaźń."))[1]
+        self.assertEqual([seg for seg in v["przed"] + v["po"] if seg["t"] in ("del", "ins")], [])
+
+    def test_clean_only_has_a_larger_limit(self):
+        with Running(FakeBackend()) as s:
+            self.assertEqual(s.call("POST", "/api/widok", widok(tekst="a" * 13000))[0], 200)
 
     def test_widok_cut_flag(self):
         with Running(FakeBackend()) as s:
@@ -262,6 +293,15 @@ class Runda(unittest.TestCase):
             status, r, _ = s.call("POST", "/api/runda", runda(tekst="Ala ma kota.", cel="x"))
         self.assertEqual((status, r["blad"]), (400, "Nieprawidłowe zapytanie."))
 
+    def test_runda_rejects_invisible_only(self):  # review: ZWSP-only text reached the model empty
+        with Running(FakeBackend()) as s:
+            status, r, _ = s.call("POST", "/api/runda", runda(tekst="\u200b\u200b"))
+        self.assertEqual((status, r["blad"]), (400, "Wklej tekst."))
+
+    def test_unreachable_is_503(self):  # the page stops the whole run on it, but keeps going on other errors
+        with Running(FakeBackend([Unreachable("Nie mogę połączyć się z serwerem modelu (x).")])) as s:
+            self.assertEqual(s.call("POST", "/api/runda", runda(tekst="Ala ma kota."))[0], 503)
+
     def test_runda_rejects_empty(self):
         with Running(FakeBackend()) as s:
             status, r, _ = s.call("POST", "/api/runda", runda(tekst="  \n"))
@@ -324,6 +364,11 @@ class Stan(unittest.TestCase):
         self.assertEqual(st["czytelnosci"][0], ["normalna", "Normalna"])
         self.assertEqual(st["cele"][0], ["ogolny", "Ogólny"])
         self.assertIn(["naukowy", "Naukowy"], st["cele"])
+
+    def test_stan_flags_cloud_models(self):
+        with Running(FakeBackend(models=["hf.co/speakleash/Bielik-11B", "gpt-oss:120b-cloud"]), default_model=None) as s:
+            st = s.call("GET", "/api/stan")[1]
+        self.assertEqual(st["modele_w_chmurze"], ["gpt-oss:120b-cloud"])
 
     def test_stan_picks_bielik(self):
         with Running(FakeBackend(models=["llama3", BIELIK]), default_model=None) as s:

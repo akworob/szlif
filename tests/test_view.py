@@ -28,6 +28,10 @@ class View(unittest.TestCase):
         v = build_view("Ala ma kota", [], "Ala ma kota", [(0, 3)])
         self.assertEqual(v["przed"][0], {"t": "eq", "text": "Ala", "warn": True})
 
+    def test_whitespace_only_change_is_not_a_diff(self):  # review: double spaces showed as red/green
+        v = build_view("Ala  ma kota.", [], "Ala ma kota.", [])
+        self.assertEqual([s["t"] for s in v["przed"] + v["po"]], ["eq", "eq"])
+
     def test_lost_flag(self):
         v = build_view("Ala ma kota", [], "Ala ma", [], lost_spans=[(7, 11)])
         self.assertIn({"t": "del", "text": "kota", "lost": True}, v["przed"])

@@ -4,7 +4,7 @@ line and for agents (`szlif.py przepisz`)."""
 from dataclasses import asdict
 from typing import Callable, Dict, List, Optional
 
-from .backends import Backend
+from .backends import Backend, BackendError, Unreachable
 from .blocks import split_blocks
 from .cleaner import clean, summary
 from .guard import check, missing_terms
@@ -59,8 +59,14 @@ def process_text(backend: Backend, model: str, text: str, rounds: int = 2, hidde
         for round_no in range(1, rounds + 1):
             if progress:
                 progress(done, todo, round_no)
-            res = run_round(backend, model, block["tekst"], current or block["tekst"], round_no, hidden, dashes,
-                            readability, purpose)
+            try:
+                res = run_round(backend, model, block["tekst"], current or block["tekst"], round_no, hidden, dashes,
+                                readability, purpose)
+            except Unreachable:
+                raise  # no server: every paragraph would fail the same way
+            except BackendError as e:  # one paragraph failed (an empty reply, a cut): keep it as it was
+                reason = "Akapit nie został przepisany: %s" % e
+                break
             if res["przyjeta"]:
                 current, problems = res["tekst"], res["problemy"]
             if res["stop"]:

@@ -7,13 +7,15 @@ user's API key. Nothing the user pastes is logged or written to disk."""
 
 import json
 import os
+import re
+import unicodedata
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import COMMAND, __version__
-from .backends import Backend, BackendError
+from .backends import Backend, BackendError, Unreachable
 from .blocks import split_blocks
 from .cleaner import clean, summary
 from .guard import check, missing_terms
@@ -22,12 +24,13 @@ from .verify import build_prompt, changed_pairs, check_meaning, chunk_pairs
 from .view import build_view
 
 PAGE = Path(__file__).with_name("strona.html")
+CLEAN_ONLY_LIMIT = 200000  # "Tylko wyczyść znaki" needs no model, so a long text is fine
 MAX_BODY = 1024 * 1024
 PAGE_HEADERS = {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "no-store",
     "Content-Security-Policy": "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; "
-                               "connect-src 'self'",
+                               "connect-src 'self'; frame-ancestors 'none'",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
 }
@@ -43,19 +46,21 @@ def _grouped(n: int) -> str:
     return format(n, ",").replace(",", " ")
 
 
-def _text(body: Dict, name: str, required: bool = True) -> Optional[str]:
-    """A text field with its line breaks made \\n; checked when required."""
+def _text(body: Dict, name: str, required: bool = True, limit: int = MAX_CHARS) -> Optional[str]:
+    """A text field with its line breaks made \\n and its letters composed (NFC: a PDF copy may
+    split "ż" into "z" and a dot, and every such word would show as changed); checked when
+    required, also for text made only of invisible characters."""
     value = body.get(name)
     if value is None and not required:
         return None
     if not isinstance(value, str):
         raise Invalid(400, "Nieprawidłowe zapytanie.")
-    value = value.replace("\r\n", "\n").replace("\r", "\n")
-    if required and not value.strip():
+    value = unicodedata.normalize("NFC", value.replace("\r\n", "\n").replace("\r", "\n"))
+    if required and not clean(value).text.strip():
         raise Invalid(400, "Wklej tekst.")
-    if required and len(value) > MAX_CHARS:
+    if required and len(value) > limit:
         raise Invalid(413, "Tekst ma %s znaków, limit to %s. Podziel go na części."
-                      % (_grouped(len(value)), _grouped(MAX_CHARS)))
+                      % (_grouped(len(value)), _grouped(limit)))
     return value
 
 
@@ -113,7 +118,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(403, {"blad": "Zapytanie z obcej strony."})
         if not self.headers.get("Content-Type", "").startswith("application/json"):
             return self._json(415, {"blad": "Oczekiwano JSON."})
-        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return self._json(400, {"blad": "Nieprawidłowe zapytanie."})
         if length > MAX_BODY:
             return self._json(413, {"blad": "Zapytanie jest za duże."})
         try:
@@ -131,8 +139,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, route(body))
         except Invalid as e:
             self._json(e.status, {"blad": str(e)})
+        except Unreachable as e:  # the page stops the whole run on this one
+            self._json(503, {"blad": str(e)})
         except BackendError as e:
             self._json(502, {"blad": str(e)})
+        except Exception:  # never a traceback with the user's text in it; the page shows this
+            self._json(500, {"blad": "Nieoczekiwany błąd Szlifu. Spróbuj ponownie, a jeśli się powtarza, "
+                                     "zgłoś to w zakładce Issues na GitHubie."})
 
     def _stan(self) -> Dict:
         backend: Backend = self.server.backend
@@ -151,7 +164,8 @@ class Handler(BaseHTTPRequestHandler):
                 "tryby": MODES, "blad": error, "polecenie": COMMAND,
                 "czytelnosci": [[k, label] for k, (label, _) in READABILITY.items()],
                 "cele": [[k, label] for k, (label, _) in PURPOSE.items()],
-                "aktualizacja": self.server.update_info, "wersja": __version__}
+                "aktualizacja": self.server.update_info, "wersja": __version__,
+                "modele_w_chmurze": [m for m in models if re.search(r"[-:]cloud\b", m)]}
 
     def _bloki(self, body: Dict) -> Dict:
         """The cleaned text in blocks; the page rewrites the paragraphs one at a time."""
@@ -202,8 +216,8 @@ class Handler(BaseHTTPRequestHandler):
             raise Invalid(400, "Nieprawidłowe zapytanie.")
 
     def _widok(self, body: Dict) -> Dict:
-        tekst = _text(body, "tekst")
         result = _text(body, "wynik", required=False)
+        tekst = _text(body, "tekst", limit=MAX_CHARS if result is not None else CLEAN_ONLY_LIMIT)
         cleaned = clean(tekst, bool(body.get("ukryte", True)), bool(body.get("myslniki", False)))
         if result is None:
             after, problems, lost = cleaned.text, [], []
