@@ -168,6 +168,13 @@ class Stan(unittest.TestCase):
         self.assertTrue(st["blad"])
         self.assertEqual(st["limit"], 12000)
 
+    def test_stan_no_model_hint(self):
+        with Running(FakeBackend(models=[]), default_model=None) as s:
+            st = s.call("GET", "/api/stan")[1]
+        self.assertIsNone(st["model"])
+        self.assertIn("Brak modelu", st["blad"])
+        self.assertIn("instaluj", st["blad"])
+
     def test_stan_picks_bielik(self):
         with Running(FakeBackend(models=["llama3", BIELIK]), default_model=None) as s:
             st = s.call("GET", "/api/stan")[1]

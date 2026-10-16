@@ -26,6 +26,11 @@ class Values(unittest.TestCase):
     def test_capitalised_word_not_unit(self):
         self.assertEqual(key("w 2026 Polska"), ["2026"])
 
+    def test_en_dash_minus(self):
+        self.assertEqual(key("do \u20135 \u00b0C"), ["-5 \u00b0C"])
+        self.assertEqual(len(check("Temperatura spad\u0142a do \u20135 \u00b0C.", "Temperatura spad\u0142a do 5 \u00b0C.")), 1)
+        self.assertEqual(key("15 z\u0142 \u2013 20 z\u0142"), ["15 z\u0142", "20 z\u0142"])
+
     def test_noun_not_unit(self):
         self.assertEqual(check("Przyszło 5 osób.", "Przyszło 5 rodzin."), [])
 

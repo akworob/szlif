@@ -128,7 +128,9 @@ class Handler(BaseHTTPRequestHandler):
             error = str(e)
         model = self.server.default_model or next((m for m in models if "bielik" in m.lower()), None) \
             or (models[0] if models else None)
-        cloud = backend.cloud_disabled() if backend.kind == "ollama" and backend.is_local and not error else None
+        if model is None and error is None:
+            error = "Brak modelu. Uruchom: %s instaluj" % COMMAND
+        cloud = backend.cloud_disabled() if backend.kind == "ollama" and backend.is_local and models else None
         return {"rodzaj": backend.kind, "serwer": backend.url, "lokalny": backend.is_local,
                 "chmura_wylaczona": cloud, "modele": models, "model": model, "limit": MAX_CHARS,
                 "tryby": MODES, "blad": error, "polecenie": COMMAND}

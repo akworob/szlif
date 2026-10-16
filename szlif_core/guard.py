@@ -56,7 +56,7 @@ UNIT = r"(?:%s(?:%s(?:%s|%s))?|%s|%s)" % (MULT, SP, WORD, SYMBOLIC, WORD, SYMBOL
 VALUE = re.compile(
     r"(?<![\w.,])(?:"
     r"(?P<date>\d{4}-\d\d-\d\d|\d{1,2}\.\d{1,2}\.\d{2,4}|\d{1,2}:\d\d)(?!\d)"
-    r"|(?:(?<![^\s(])(?P<sign>[-+−]))?"
+    r"|(?:(?<![^\s(])(?P<sign>[-+−–]))?"
     r"(?P<whole>\d{1,3}(?:" + SP + r"\d{3})+(?!\d)|\d+)(?P<frac>[.,]\d+)?"
     r"(?:" + SP + r"?(?P<unit>" + UNIT + r"))?)")
 # List numbering ("1." or "2)" opening a line) is not a value.
@@ -77,7 +77,7 @@ def find_values(text: str) -> List[Value]:
         if m.group("date"):
             key = m.group("date")
         else:
-            sign = "-" if m.group("sign") in ("-", "−") else (m.group("sign") or "")
+            sign = "-" if m.group("sign") in ("-", "−", "–") else (m.group("sign") or "")
             key = sign + re.sub(SP, "", m.group("whole")) + (m.group("frac") or "")
             if m.group("unit"):
                 key += " " + " ".join(_canon(w) for w in re.split(SP, m.group("unit")))

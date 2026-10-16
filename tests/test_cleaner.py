@@ -113,6 +113,16 @@ class Dashes(unittest.TestCase):
     def test_dash_line_start_kept(self):
         self.assertEqual(clean("– Tak – powiedział.", dashes=True).text, "– Tak, powiedział.")
 
+    def test_dash_minus_kept(self):
+        text = "Rano by\u0142o \u20135 \u00b0C, w po\u0142udnie \u20132 \u00b0C."
+        self.assertEqual(clean(text, dashes=True).text, text)
+
+    def test_dash_amount_range_kept(self):
+        self.assertEqual(clean("15 z\u0142 \u2013 20 z\u0142", dashes=True).text, "15 z\u0142 \u2013 20 z\u0142")
+
+    def test_dash_spaced_range_between_numbers(self):
+        self.assertEqual(clean("10 \u2013 20 os\u00f3b", dashes=True).text, "10-20 os\u00f3b")
+
     def test_hidden_false_only_dashes(self):
         self.assertEqual(clean("a​ — b", hidden=False, dashes=True).text, "a​, b")
 

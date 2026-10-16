@@ -106,7 +106,7 @@ python3 szlif.py --serwer http://192.168.1.20:11434     # Ollama na innym komput
 python3 szlif.py --serwer https://example.org/v1         # serwer w standardzie OpenAI
 ```
 
-- **Ollama na innym komputerze** musi słuchać w sieci. Ustaw tam `OLLAMA_HOST=0.0.0.0` przed uruchomieniem Ollamy.
+- **Ollama na innym komputerze** musi słuchać w sieci. Ustaw tam `OLLAMA_HOST=0.0.0.0` przed uruchomieniem Ollamy. **Uwaga:** Ollama nie ma haseł, więc wtedy każdy w tej sieci może z niej korzystać. Rób to tylko w zaufanej sieci domowej, nigdy w publicznym Wi-Fi.
 - **Serwer w standardzie OpenAI** to np. vLLM, SGLang, LM Studio, llama.cpp albo dostawca w chmurze, u którego jest Bielik.
 - **Rodzaj serwera** Szlif rozpoznaje sam. Wymusisz go przez `--rodzaj ollama` albo `--rodzaj openai`.
 - **Model** wybierzesz przez `--model NAZWA`.

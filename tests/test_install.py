@@ -130,6 +130,31 @@ class Installer(unittest.TestCase):
         self.assertIn("100%", out.getvalue())
         self.assertEqual(pulled, [{"model": Q6, "stream": True}])
 
+    def test_failed_test_round_fails(self):
+        routes = {("GET", "/api/version"): (200, {"version": "0.40.1"}, 0),
+                  ("GET", "/api/status"): (200, {"cloud": {"disabled": True}}, 0),
+                  ("GET", "/api/tags"): (200, {"models": [{"name": Q6}]}, 0),
+                  ("POST", "/api/chat"): (500, {"error": "model requires more system memory"}, 0)}
+        out = io.StringIO()
+        with FakeServer(routes) as s:
+            code = install.run_installer(s.url, never_asked, self.run_cmd, NOTHING, "Darwin", out, 32)
+        self.assertEqual(code, 1, out.getvalue())
+        self.assertNotIn("Gotowe", out.getvalue())
+        self.assertIn("more system memory", out.getvalue())
+        self.assertEqual(config.load(), {})
+
+    def test_pull_without_success_fails(self):
+        routes = {("GET", "/api/version"): (200, {"version": "0.40.1"}, 0),
+                  ("GET", "/api/status"): (200, {"cloud": {"disabled": True}}, 0),
+                  ("GET", "/api/tags"): (200, {"models": []}, 0),
+                  ("POST", "/api/pull"): (200, b'{"status": "pulling", "total": 100, "completed": 50}\n', 0),
+                  ("POST", "/api/chat"): CHAT}
+        out = io.StringIO()
+        with FakeServer(routes) as s:
+            code = install.run_installer(s.url, lambda q: True, self.run_cmd, NOTHING, "Darwin", out, 32)
+        self.assertEqual(code, 1, out.getvalue())
+        self.assertNotIn("Gotowe", out.getvalue())
+
     def test_other_bielik_reused(self):
         other = "hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q5_K_M"
         routes = {("GET", "/api/version"): (200, {"version": "0.40.1"}, 0),

@@ -134,6 +134,7 @@ def pull(base_url: str, model: str, out: TextIO) -> None:
     body = json.dumps({"model": model, "stream": True}).encode()
     req = urllib.request.Request(backend.url + "/api/pull", body, {"Content-Type": "application/json"})
     try:
+        finished = False
         with backend._opener.open(req, timeout=300) as resp:
             for raw in resp:
                 if not raw.strip():
@@ -145,9 +146,12 @@ def pull(base_url: str, model: str, out: TextIO) -> None:
                 if total and done is not None:
                     print("\r%s %d%%   " % (event.get("status", ""), done * 100 // total), end="", file=out, flush=True)
                 if event.get("status") == "success":
+                    finished = True
                     print("\rPobrano.          ", file=out)
     except (OSError, ValueError) as e:
         raise BackendError("Pobieranie modelu przerwane (%s). Uruchom instalator ponownie." % e)
+    if not finished:
+        raise BackendError("Pobieranie modelu nie dobiegło końca. Uruchom instalator ponownie.")
 
 
 def run_installer(base_url: str, ask: Callable[[str], bool], run: Callable[[List[str]], int],
@@ -233,6 +237,9 @@ def run_installer(base_url: str, ask: Callable[[str], bool], run: Callable[[List
         result = run_round(backend, model, clean(TEST_TEXT).text, TEST_TEXT, 2, True, False)
     except BackendError as e:
         say("Próba nie powiodła się: %s" % e)
+        return 1
+    if not result["przyjeta"]:  # from round 2 on, run_round reports an error instead of raising it
+        say("Próba nie powiodła się: %s" % result["powod"])
         return 1
     say("  przed: " + TEST_TEXT)
     say("  po:    " + result["tekst"])

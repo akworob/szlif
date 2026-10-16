@@ -147,7 +147,12 @@ async function api(path, body, signal) {
   const opts = body === undefined ? {} : {
     method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body), signal,
   };
-  const resp = await fetch(path, opts);
+  let resp;
+  try { resp = await fetch(path, opts); } catch (e) {
+    if (e.name === "AbortError") throw e;
+    throw new Error("Brak połączenia ze Szlifem albo przeglądarka przestała czekać. "
+      + "Sprawdź, czy szlif.py nadal działa w terminalu. Długi tekst podziel na części.");
+  }
   let data;
   try { data = await resp.json(); } catch (e) { throw new Error("Serwer Szlifu odpowiedział nieoczekiwanie (" + resp.status + ")."); }
   if (!resp.ok) throw new Error(data.blad || ("Błąd " + resp.status));
@@ -197,7 +202,7 @@ function options() {
 function busy(text) {
   $("progress").hidden = !text;
   $("progress-text").textContent = text || "";
-  $("error").hidden = true;
+  if (text) $("error").hidden = true;  // a new run clears the old error; the end of a run keeps it
   updateCount();
 }
 

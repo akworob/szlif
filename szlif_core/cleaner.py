@@ -111,11 +111,17 @@ def _dash_replacement(text: str, match) -> Optional[str]:
     nxt = text[e] if e < len(text) else "\n"
     if prev == "\n" or nxt == "\n":  # opens a line (dialogue, list) or ends one
         return None
-    if prev.isdigit() and nxt.isdigit():
+    if prev.isdigit() and nxt.isdigit():  # a range: "10–20", "10 – 20"
         return "-"
-    if match.group() == "–" and prev.isalpha() and nxt.isalpha():
-        return "-"
-    return ", "
+    dash = match.group(1)
+    spaced_before, spaced_after = match.group()[0] != dash, match.group()[-1] != dash
+    if nxt.isdigit() and (not spaced_after or dash == "–"):
+        return None  # a minus sign ("–5 °C") or a range of amounts ("15 zł – 20 zł")
+    if spaced_before and spaced_after:
+        return ", "
+    if not spaced_before and not spaced_after and prev.isalpha() and nxt.isalpha():
+        return "-" if dash == "–" else ", "
+    return None
 
 
 def _dashes(pieces: List[Piece]) -> List[Piece]:
