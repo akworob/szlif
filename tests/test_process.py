@@ -19,7 +19,8 @@ class Process(unittest.TestCase):
         self.assertEqual(r["wynik"], "Tytuł\n\n%s\n\n- punkt\n\n%s\n" % (R1, long_p2))
         self.assertEqual([(a["numer"], a["przepisany"]) for a in r["akapity"]], [(2, True), (4, True)])
         self.assertEqual(r["akapity"][0]["problemy"], [])
-        self.assertEqual([p["kind"] for p in r["akapity"][1]["problemy"]], ["too_long"])
+        # the invented sentence is too long and also brings in a "każdej" (a strengthening word)
+        self.assertEqual([p["kind"] for p in r["akapity"][1]["problemy"]], ["too_long", "certainty"])
         self.assertEqual(r["ostrzezenia"], 1)
 
     def test_progress_reported(self):
@@ -43,6 +44,12 @@ class Process(unittest.TestCase):
         self.assertEqual([p["kind"] for p in r["akapity"][0]["problemy"]], ["values"])
         self.assertEqual([p["kind"] for p in r["akapity"][1]["problemy"]], ["values"])
         self.assertEqual(r["ostrzezenia"], 2)
+
+    def test_missing_terms_listed(self):
+        text = "Organizacje działają dziś w warunkach zmian technologicznych, ekonomicznych i społecznych na rynku."
+        backend = FakeBackend([Reply("Organizacje działają w warunkach zmian technologicznych na dzisiejszym rynku.", False)])
+        r = process_text(backend, "m", text, rounds=1)
+        self.assertEqual(r["znikniete"], ["ekonomicznych", "społecznych"])
 
     def test_values_checked_on_whole_text(self):
         text = "Bilet na koncert w sobotę kosztuje 15 zł, a ulgowy bilet dla studentów kosztuje 10 zł."

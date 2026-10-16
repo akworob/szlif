@@ -1,6 +1,6 @@
 import unittest
 
-from szlif_core.guard import check, find_values
+from szlif_core.guard import check, find_values, missing_terms
 
 
 def key(text):
@@ -109,6 +109,61 @@ class Check(unittest.TestCase):
     def test_meta_words_already_in_original(self):
         text = "Ten tekst ma dobry rytm, a zdania są krótkie."
         self.assertEqual(check(text, "Zdania są krótkie, a ten tekst ma dobry rytm."), [])
+
+
+class Certainty(unittest.TestCase):
+    """Measured on an academic paragraph: "w wielu sektorach" became "firmy muszą", "nie zawsze"
+    became "często nie", and "może dotyczyć" lost its "może". None of it has numbers."""
+
+    def kinds(self, before, after):
+        return [p.kind for p in check(before, after)]
+
+    def test_scope_widened(self):
+        p = [p for p in check("W wielu sektorach firmy są pod presją szybkiego reagowania na zmiany.",
+                              "Firmy muszą szybko reagować na zmiany i są pod presją rynku.") if p.kind == "certainty"]
+        self.assertEqual(len(p), 1)
+        self.assertEqual(p[0].missing, ["w wielu"])
+        self.assertEqual(p[0].added, ["muszą"])
+
+    def test_not_always_became_often(self):
+        self.assertIn("certainty", self.kinds("Zmiany nie zawsze rozwijają się w sposób liniowy i przewidywalny.",
+                                              "Zmiany często nie rozwijają się w sposób liniowy i przewidywalny."))
+
+    def test_hedge_dropped(self):
+        self.assertIn("certainty", self.kinds("Niepewność może dotyczyć przyszłego stanu otoczenia firmy.",
+                                              "Niepewność dotyczy przyszłego stanu otoczenia firmy."))
+
+    def test_same_kind_of_word_is_fine(self):
+        for before, after in [("Należy to sprawdzić przed wyjazdem na urlop.", "Trzeba to sprawdzić przed wyjazdem na urlop."),
+                              ("To może być trudne dla nowych pracowników.", "To bywa trudne dla nowych pracowników."),
+                              ("Często pada w listopadzie w górach.", "Zwykle pada w listopadzie w górach.")]:
+            with self.subTest(after=after):
+                self.assertNotIn("certainty", self.kinds(before, after))
+
+    def test_safe_direction_not_flagged(self):  # a pewnik that became a hedge is not the dangerous direction
+        self.assertNotIn("certainty", self.kinds("Klienci zawsze oczekują szybkiej odpowiedzi.",
+                                                 "Klienci zwykle oczekują szybkiej odpowiedzi."))
+
+
+class MissingTerms(unittest.TestCase):
+    def test_dropped_list_items_found(self):
+        before = "Organizacje działają w warunkach zmian technologicznych, ekonomicznych i społecznych."
+        after = "Organizacje działają w warunkach zmian technologicznych."
+        self.assertEqual([t for _, _, t in missing_terms(before, after)], ["ekonomicznych", "społecznych"])
+
+    def test_spans_point_into_the_original(self):
+        before = "Wiedza i formalne uprawnienia menedżera pozostają ważne."
+        after = "Wiedza menedżera pozostaje ważna."
+        spans = missing_terms(before, after)
+        self.assertEqual([before[s:e] for s, e, _ in spans], [t for _, _, t in spans])
+        self.assertIn("uprawnienia", [t for _, _, t in spans])
+
+    def test_inflection_is_not_missing(self):
+        self.assertEqual(missing_terms("Zmiany ekonomiczne dotykają przedsiębiorstwa.",
+                                       "Zmiany ekonomicznych warunków dotykają przedsiębiorstw."), [])
+
+    def test_short_and_common_words_ignored(self):
+        self.assertEqual(missing_terms("Jednak również dlatego ma to sens.", "Ma to sens."), [])
 
 
 if __name__ == "__main__":

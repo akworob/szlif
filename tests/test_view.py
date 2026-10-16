@@ -28,6 +28,10 @@ class View(unittest.TestCase):
         v = build_view("Ala ma kota", [], "Ala ma kota", [(0, 3)])
         self.assertEqual(v["przed"][0], {"t": "eq", "text": "Ala", "warn": True})
 
+    def test_lost_flag(self):
+        v = build_view("Ala ma kota", [], "Ala ma", [], lost_spans=[(7, 11)])
+        self.assertIn({"t": "del", "text": "kota", "lost": True}, v["przed"])
+
     def test_adjacent_merged(self):
         v = build_view("Ala ma kota i psa.", [Change(4, 1, " ", " ", "NBSP")], "Ala nie ma psa.", [(7, 11)])
         for column in ("przed", "po"):

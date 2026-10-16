@@ -16,7 +16,7 @@ from . import COMMAND
 from .backends import Backend, BackendError
 from .blocks import split_blocks
 from .cleaner import clean, summary
-from .guard import check
+from .guard import check, missing_terms
 from .rewrite import MAX_CHARS, MODES, run_round
 from .verify import build_prompt, changed_pairs, check_meaning, chunk_pairs
 from .view import build_view
@@ -202,13 +202,15 @@ class Handler(BaseHTTPRequestHandler):
         result = _text(body, "wynik", required=False)
         cleaned = clean(tekst, bool(body.get("ukryte", True)), bool(body.get("myslniki", False)))
         if result is None:
-            after, problems = cleaned.text, []
+            after, problems, lost = cleaned.text, [], []
         else:
             after, problems = result, check(cleaned.text, result, bool(body.get("uciete", False)))
+            lost = missing_terms(cleaned.text, result)
         spans = [span for p in problems for span in p.missing_spans]
-        view = build_view(cleaned.text, cleaned.changes, after, spans)
+        view = build_view(cleaned.text, cleaned.changes, after, spans, [(s, e) for s, e, _ in lost])
+        terms = list(dict.fromkeys(term for _, _, term in lost))
         return {"przed": view["przed"], "po": view["po"], "czyszczenie": summary(cleaned.changes),
-                "problemy": [asdict(p) for p in problems]}
+                "problemy": [asdict(p) for p in problems], "znikniete": terms}
 
 
 class Server(ThreadingHTTPServer):

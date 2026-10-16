@@ -3,7 +3,7 @@ result, with the cleaning pills and the guard's warnings placed in the text."""
 
 import difflib
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .cleaner import Change
 
@@ -14,19 +14,24 @@ def tokenize(text: str) -> List[str]:
     return TOKEN.findall(text)
 
 
-def _append(segments: List[Dict], kind: str, text: str, warn: bool = False) -> None:
+def _append(segments: List[Dict], kind: str, text: str, warn: bool = False, lost: bool = False) -> None:
     last = segments[-1] if segments else None
-    if last and last["t"] == kind and last.get("warn", False) == warn and kind != "pill":
+    if (last and last["t"] == kind and last.get("warn", False) == warn and last.get("lost", False) == lost
+            and kind != "pill"):
         last["text"] += text
         return
     segment = {"t": kind, "text": text}
     if warn:
         segment["warn"] = True
+    if lost:
+        segment["lost"] = True
     segments.append(segment)
 
 
-def build_view(before: str, pills: List[Change], after: str,
-               missing_spans: List[Tuple[int, int]]) -> Dict[str, List[Dict]]:
+def build_view(before: str, pills: List[Change], after: str, missing_spans: List[Tuple[int, int]],
+               lost_spans: Optional[List[Tuple[int, int]]] = None) -> Dict[str, List[Dict]]:
+    """missing_spans: values the guard misses in the result ("warn"); lost_spans: terms with no
+    trace in the result ("lost")."""
     a, b = tokenize(before), tokenize(after)
     kinds = ["eq"] * len(before)  # per character of before
     po: List[Dict] = []
@@ -44,6 +49,9 @@ def build_view(before: str, pills: List[Change], after: str,
     warn = [False] * len(before)
     for start, end in missing_spans:
         warn[start:end] = [True] * (end - start)
+    lost = [False] * len(before)
+    for start, end in lost_spans or []:
+        lost[start:end] = [True] * (end - start)
     pills_at: Dict[int, List[str]] = {}
     for change in pills:
         pills_at.setdefault(change.pos, []).append(change.label)
@@ -53,5 +61,5 @@ def build_view(before: str, pills: List[Change], after: str,
         for label in pills_at.get(i, []):
             przed.append({"t": "pill", "text": "", "label": label})
         if i < len(before):
-            _append(przed, kinds[i], before[i], warn[i])
+            _append(przed, kinds[i], before[i], warn[i], lost[i])
     return {"przed": przed, "po": po}

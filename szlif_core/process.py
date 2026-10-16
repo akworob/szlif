@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional
 from .backends import Backend
 from .blocks import split_blocks
 from .cleaner import clean, summary
-from .guard import check
+from .guard import check, missing_terms
 from .rewrite import run_round
 
 Progress = Callable[[int, int, int], None]  # paragraph done, paragraphs to do, round
@@ -40,8 +40,9 @@ def warning_lines(result: Dict) -> List[str]:
 
 def process_text(backend: Backend, model: str, text: str, rounds: int = 2, hidden: bool = True,
                  dashes: bool = False, progress: Optional[Progress] = None) -> Dict:
-    """{"wynik", "akapity", "problemy", "czyszczenie", "ostrzezenia"}. Numbers are checked on the
-    whole text ("problemy"); length, paragraphs and comments per paragraph ("akapity")."""
+    """{"wynik", "akapity", "problemy", "czyszczenie", "ostrzezenia", "znikniete"}. Numbers are checked
+    on the whole text ("problemy"); length, paragraphs, comments and certainty per paragraph
+    ("akapity"); "znikniete" lists long words of the original with no trace in the result."""
     cleaned = clean(text.replace("\r\n", "\n").replace("\r", "\n"), hidden, dashes)
     blocks = split_blocks(cleaned.text)
     todo = sum(1 for b in blocks if b["przepisz"])
@@ -72,5 +73,6 @@ def process_text(backend: Backend, model: str, text: str, rounds: int = 2, hidde
     for paragraph in paragraphs:
         paragraph["problemy"] = [p for p in paragraph["problemy"] if not covered(p, values)]
     warnings = len(values) + sum(1 for p in paragraphs if p["problemy"] or p["powod"])
+    terms = list(dict.fromkeys(term for _, _, term in missing_terms(cleaned.text, result)))
     return {"wynik": result, "akapity": paragraphs, "problemy": values, "czyszczenie": summary(cleaned.changes),
-            "ostrzezenia": warnings}
+            "ostrzezenia": warnings, "znikniete": terms}

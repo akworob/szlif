@@ -125,12 +125,14 @@ def rewrite_file(args: argparse.Namespace) -> int:
     if tty:
         say("")
     lines = warning_lines(result)
+    terms = ("Słowa z oryginału, których nie ma w wyniku: %s" % ", ".join(result["znikniete"])
+             if result["znikniete"] else "")
     pairs = [(a["numer"], a["przed"], a["po"]) for a in result["akapity"]]
     check = None
     if args.sprawdz and any(before.strip() != after.strip() for _, before, after in pairs):
         checker = args.model_weryfikatora or model
         say("Sprawdzam sens modelem %s…" % checker)
-        check = check_meaning(backend, checker, pairs, lines)
+        check = check_meaning(backend, checker, pairs, lines + ([terms] if terms else []))
     report = dict(result, model=model, tryb=args.tryb)
     if check:
         report["weryfikacja"] = check
@@ -145,13 +147,15 @@ def rewrite_file(args: argparse.Namespace) -> int:
                 json.dump(report, f, ensure_ascii=False, indent=2)
         if args.weryfikacja:
             with open(args.weryfikacja, "w", encoding="utf-8") as f:
-                f.write(build_prompt(pairs, lines))
+                f.write(build_prompt(pairs, lines + ([terms] if terms else [])))
     except OSError as e:
         say("Nie mogę zapisać wyniku: %s" % e)
         return 1
     say("Szlif: przepisane akapity: %d, ostrzeżenia: %d." % (len(result["akapity"]), result["ostrzezenia"]))
     for line in lines:
         say("  " + line)
+    if terms:
+        say("  " + terms + " (mogło je zastąpić inne słowo, ale mogły też zniknąć z treści)")
     if check:
         say("Weryfikacja (%s):\n%s" % (check["model"], check["odpowiedz"]))
         if "blad" in check:

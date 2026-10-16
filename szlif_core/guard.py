@@ -23,7 +23,7 @@ class Value:
 
 @dataclass
 class Problem:
-    kind: str                             # "values" | "cut" | "too_long" | "too_short" | "paragraphs" | "meta"
+    kind: str                             # values | cut | too_long | too_short | paragraphs | meta | certainty
     message: str
     missing: List[str]                    # shown forms from the original
     added: List[str]                      # shown forms from the output
@@ -39,7 +39,33 @@ MESSAGES = {
     "paragraphs": "Zmieniła się liczba akapitów (%d \u2192 %d). Model mógł połączyć, rozdzielić albo dopisać akapity.",
     "meta": "Wynik mówi o samym tekście („%s”), a oryginał nie. Model mógł dopisać komentarz albo fragment "
             "polecenia.",
+    "certainty": "Zmieniła się pewność twierdzeń: zniknęło osłabienie albo doszło wzmocnienie. Sprawdź, czy "
+                 "przypuszczenie nie stało się pewnikiem, a „w wielu” nie zmieniło się w „wszystkie”.",
 }
+
+# Words that set how sure or how wide a claim is, in classes of words that mean about the same.
+# A rewrite may swap words within a class ("należy" -> "trzeba"). It is a warning when a hedging
+# class loses a word or a strengthening class gains one: measured on an academic paragraph,
+# "w wielu sektorach" became "firmy muszą", "nie zawsze" became "często nie" and "może dotyczyć"
+# lost its "może". Classes are matched in this order, so "nie zawsze" is not read as "zawsze".
+CERTAINTY = [  # (pattern, class, hedging?)
+    (r"nie zawsze|czasem|czasami|niekiedy|nieraz", "nie zawsze", True),
+    (r"w wielu|w niektórych|u części|niektór\w*|wiele|wielu|część|części", "część", True),
+    (r"może|mogą|mógł\w*|mogł\w*|można|bywa\w*|potencjalnie|ewentualnie", "może", True),
+    (r"zwykle|zazwyczaj|często|najczęściej|przeważnie", "zwykle", True),
+    (r"rzadko", "rzadko", True),
+    (r"prawdopodobnie|przypuszczalnie|najprawdopodobniej|raczej|chyba|wydaje się", "prawdopodobnie", True),
+    (r"zawsze|nigdy|każd\w*|wszys\w*|całkowicie|w pełni|zupełnie", "zawsze", False),
+    (r"musi|muszą|musiał\w*|musz\w*|trzeba|należy|konieczn\w*", "musi", False),
+    (r"na pewno|z pewnością|bez wątpienia|niewątpliwie|gwarant\w*|potwierdza\w*", "na pewno", False),
+    (r"tylko|wyłącznie|jedyn\w*", "tylko", False),
+]
+CERTAINTY_RE = re.compile("|".join(r"(?P<c%d>(?<!\w)(?:%s)(?!\w))" % (i, pattern)
+                                   for i, (pattern, _, _) in enumerate(CERTAINTY)), re.I)
+# Long words a reader would miss if they vanished; common function words are not terms.
+COMMON = set("""jednak również dlatego ponieważ między właśnie bardzo przede wszystkim jednocześnie natomiast
+    zarówno których którym która które który którego której także wtedy gdzie kiedy podczas jeszcze bardziej
+    bowiem będzie będą został została zostały zostało jakie jakiś jakaś pewien pewne swoje swoich""".split())
 # Measured on a 1000-word article: Bielik appended invented sentences to a paragraph (+50% words),
 # summarised a whole text (-60%) and once wrote its own instruction into the text ("Krótkie zdania
 # przeplatają się z dłuższymi, co nadaje tekstowi naturalny rytm."). None of it has numbers.
@@ -130,7 +156,37 @@ def check(original: str, output: str, cut: bool = False) -> List[Problem]:
     meta = _meta_word(original, output)
     if meta:
         problems.append(Problem("meta", MESSAGES["meta"] % meta, [], [], []))
+    weaker, stronger = _certainty_change(original, output)
+    if weaker or stronger:
+        problems.append(Problem("certainty", MESSAGES["certainty"], weaker, stronger, []))
     return problems
+
+
+def _certainty_words(text: str) -> List[Tuple[str, str]]:
+    """(class, word as written) for every certainty word in the text."""
+    return [(CERTAINTY[int(m.lastgroup[1:])][1], m.group().lower()) for m in CERTAINTY_RE.finditer(text)]
+
+
+def _certainty_change(original: str, output: str) -> Tuple[List[str], List[str]]:
+    """Hedging words the output lost and strengthening words it gained, by class."""
+    hedging = {cls: hedge for _, cls, hedge in CERTAINTY}
+    before, after = _certainty_words(original), _certainty_words(output)
+    count_before = Counter(cls for cls, _ in before)
+    count_after = Counter(cls for cls, _ in after)
+    lost = [cls for cls in count_before if hedging[cls] and count_after[cls] < count_before[cls]]
+    gained = [cls for cls in count_after if not hedging[cls] and count_after[cls] > count_before[cls]]
+    weaker = [word for cls, word in before if cls in lost]
+    stronger = [word for cls, word in after if cls in gained]
+    return weaker, stronger
+
+
+def missing_terms(original: str, output: str) -> List[Tuple[int, int, str]]:
+    """Spans of long words of the original with no word in the output starting the same way
+    (first 5 letters, so inflection is no change): a list item or a term that may have gone.
+    A synonym shows up here too, so it is a list to look at, not a warning."""
+    starts = {w.lower()[:5] for w in re.findall(r"[^\W\d_]+", output)}
+    return [(m.start(), m.end(), m.group()) for m in re.finditer(r"[^\W\d_]{6,}", original)
+            if m.group().lower() not in COMMON and m.group().lower()[:5] not in starts]
 
 
 def _paragraphs(text: str) -> int:

@@ -120,6 +120,13 @@ class Widok(unittest.TestCase):
         self.assertEqual(v["problemy"][0]["missing"], ["15 zł"])
         self.assertTrue(any(seg.get("warn") for seg in v["przed"]))
 
+    def test_widok_lists_missing_terms(self):
+        with Running(FakeBackend()) as s:
+            v = s.call("POST", "/api/widok", widok(tekst="Zmiany technologiczne, ekonomiczne i społeczne.",
+                                                   wynik="Zmiany technologiczne."))[1]
+        self.assertEqual(v["znikniete"], ["ekonomiczne", "społeczne"])
+        self.assertTrue(any(seg.get("lost") for seg in v["przed"]))
+
     def test_widok_cut_flag(self):
         with Running(FakeBackend()) as s:
             v = s.call("POST", "/api/widok", widok(tekst="Ala ma kota.", wynik="Ala ma", uciete=True))[1]

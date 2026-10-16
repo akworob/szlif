@@ -294,3 +294,8 @@ Test na publicznym artykule medycznym (ok. 1000 słów, bez liczb) pokazał trzy
   - pozycje list, nagłówki Markdown, cytaty i tabele są osobnymi blokami i zostają bez zmian;
   - ostrzeżenie „meta” wymaga co najmniej dwóch słów o pisaniu w jednym zdaniu;
   - liczba przeniesiona między akapitami jest zgłaszana przy akapicie.
+- **Strażnik pewności i lista pojęć, które zniknęły** (decyzja użytkownika z 2026-10-16, po przykładzie z tekstu naukowego):
+  - **Przykład.** „W wielu sektorach” zmieniło się w „firmy muszą”, „nie zawsze” w „często nie”, z „może dotyczyć” zniknęło „może”, a z wyliczeń wypadły „ekonomicznych i społecznych” oraz „formalne uprawnienia”.
+  - **Ostrzeżenie „certainty”.** Słowa pewności są pogrupowane w klasy; w obrębie jednej klasy wolno je zamieniać („należy” → „trzeba”). Ostrzeżenie pada, gdy klasa osłabiająca traci słowo albo klasa wzmacniająca je zyskuje.
+  - **„znikniete”.** Słowa z oryginału od 6 liter, po których w wyniku nie ma śladu (pierwsze 5 liter, bez listy słów pospolitych). Są pogrubione w kolumnie Przed i trafiają do promptu dla weryfikatora. To informacja, a nie ostrzeżenie.
+  - **Detektory AI.** Użytkownik uważa oznaczenie tekstu przez detektor za porażkę. Ustalenie: Szlif poprawia naturalność stylu, którą ocenia człowiek czytający tekst. Funkcji celujących w detektory (pętle z detektorem, sztuczne literówki, szum) nie budujemy, a README dalej nie obiecuje przechodzenia przez detektory.

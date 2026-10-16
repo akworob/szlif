@@ -69,6 +69,7 @@
   .del { color: var(--del); background: var(--del-bg); text-decoration: line-through; text-decoration-thickness: 1.5px; }
   .ins { color: var(--ins); background: var(--ins-bg); }
   .warn { text-decoration: underline wavy var(--warn); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  .lost { font-weight: 700; }
   .pill { display: inline-block; font: 600 11px/1.5 var(--sans); color: var(--pill); background: var(--pill-bg);
           border-radius: 4px; padding: 0 5px; margin: 0 2px; vertical-align: 2px; white-space: nowrap; }
   footer { margin-top: 22px; color: var(--muted); font-size: 14px; }
@@ -242,7 +243,7 @@ function renderColumn(target, segments) {
       target.append(pill);
       continue;
     }
-    const cls = [s.t === "eq" ? "" : s.t, s.warn ? "warn" : ""].join(" ").trim();
+    const cls = [s.t === "eq" ? "" : s.t, s.warn ? "warn" : "", s.lost ? "lost" : ""].join(" ").trim();
     target.append(cls ? el("span", cls, s.text) : document.createTextNode(s.text));
   }
 }
@@ -257,6 +258,12 @@ function render(view, notes) {
   facts.append(el("div", "", cleaned.length
     ? "Wyczyszczono: " + cleaned.map(([kind, n]) => (NAMES[kind] || kind) + " ×" + n).join(", ") + "."
     : "Nie znaleziono ukrytych znaków."));
+  const terms = view.znikniete || [];
+  if (terms.length) {
+    const shown = terms.slice(0, 15).join(", ") + (terms.length > 15 ? " i " + (terms.length - 15) + " innych" : "");
+    facts.append(el("div", "", "Słowa z oryginału, których nie ma w wyniku: " + shown + " (pogrubione w kolumnie Przed). "
+      + "Mogło je zastąpić inne słowo, ale mogły też zniknąć z treści."));
+  }
   // Numbers are checked on the whole text (and marked in it); the rest per paragraph, in notes.
   for (const p of view.problemy.filter((p) => p.kind === "values")) {
     const box = el("div", "problem");
@@ -363,6 +370,9 @@ async function processText() {
       if (r.reason) warnings.push("Akapit " + r.number + ": " + r.reason);
     }
     if (!todo) notes.push({info: "Nie ma tu akapitu do przepisania: nagłówki, listy i akapity krótsze niż 12 słów zostają bez zmian."});
+    if (view.znikniete && view.znikniete.length) {
+      warnings.push("Słowa z oryginału, których nie ma w wyniku: " + view.znikniete.join(", "));
+    }
     toVerify = {pary: pairs, uwagi: warnings};
     rewrittenWith = model;
     render(view, notes);

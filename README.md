@@ -10,7 +10,7 @@ Szlif przepisuje polski tekst modelem Bielik i czyści go z ukrytych znaków. Mo
 
 - **Przepisywanie Bielikiem.** Akapit po akapicie, w jednej, dwóch albo trzech rundach: rytm zdań, słownictwo, przejścia między zdaniami. Akapit kończy się pustym wierszem albo zwykłym Enterem (tak wkleja się tekst z Worda czy Google Docs), a wiersz złamany w środku zdania (np. z PDF) jest łączony z następnym. Nagłówki, pozycje list, cytaty, tabele i akapity krótsze niż 12 słów zostają bez zmian. Model działa lokalnie przez [Ollamę](https://ollama.com).
 - **Czyszczenie ukrytych znaków.** Usuwa spacje o zerowej szerokości, znacznik BOM, miękkie dywizy, znaki sterujące kierunkiem tekstu i ukryty tekst ze znaków „tag”. Nietypowe spacje zamienia na zwykłe. Litery z cyrylicy lub greki udające łacińskie zamienia na łacińskie, ale tylko wewnątrz słów, które mają też litery łacińskie. Na życzenie zamienia myślniki na przecinki. Każda zmiana jest widoczna na stronie jako pomarańczowa etykieta. Czyszczenie działa także bez modelu.
-- **Strażnik.** Ostrzega, gdy w wyniku brakuje liczby, jednostki, daty albo godziny z oryginału albo gdy pojawiła się nowa. Ostrzega też, gdy akapit wyraźnie się skrócił (poniżej 70% słów) albo urósł (powyżej 140%, a przy krótkim akapicie o więcej niż 6 słów), gdy zmieniła się liczba akapitów i gdy wynik zaczyna mówić o samym tekście („rytm”, „zdania”). To ostatnie znaczy zwykle, że do tekstu przeciekło polecenie dla modelu.
+- **Strażnik.** Ostrzega, gdy w wyniku brakuje liczby, jednostki, daty albo godziny z oryginału albo gdy pojawiła się nowa. Ostrzega też, gdy akapit wyraźnie się skrócił (poniżej 70% słów) albo urósł (powyżej 140%, a przy krótkim akapicie o więcej niż 6 słów), gdy zmieniła się liczba akapitów i gdy wynik zaczyna mówić o samym tekście („rytm”, „zdania”). To ostatnie znaczy zwykle, że do tekstu przeciekło polecenie dla modelu. Pilnuje też **pewności twierdzeń**: ostrzega, gdy z akapitu znika osłabienie („może”, „nie zawsze”, „w wielu”, „zwykle”, „prawdopodobnie”) albo dochodzi wzmocnienie („muszą”, „zawsze”, „każdy”, „tylko”, „na pewno”). Na koniec wypisuje **słowa z oryginału, których nie ma w wyniku**, np. pominięty element wyliczenia. To lista do przejrzenia, a nie alarm, bo trafiają na nią też synonimy.
 
 ## Czego Szlif nie robi
 
@@ -95,6 +95,7 @@ Strona wygląda na Windows tak samo jak na zrzutach powyżej. **Uczciwie:** na W
   - Przekreślone na czerwono: tekst, który zniknął.
   - Pomarańczowe etykiety: wyczyszczone znaki. Najedź na etykietę, żeby zobaczyć nazwę znaku.
   - Żółte podkreślenie: wartość, której nie ma w wyniku.
+  - Pogrubienie: słowo, po którym w wyniku nie ma śladu, nawet w innej formie. Mogło je zastąpić inne słowo, ale mogło też zniknąć z treści.
 - **Prawa kolumna to wynik.** Na zielono jest to, co doszło.
 - **Nad kolumnami** widać, co wyczyszczono, ostrzeżenia o liczbach (zaznaczone też w tekście) i notatki przy konkretnych akapitach, np. „Akapit 4 (…)”, z powodem ostrzeżenia.
 - **Tryby:**
@@ -206,12 +207,12 @@ python3 szlif.py --serwer https://example.org/v1         # serwer w standardzie 
 
 Dlatego Szlif pokazuje oba teksty obok siebie i dlatego warto przeczytać każdą zmianę, zanim użyjesz wyniku.
 
-Strażnik liczb **nie sprawdza**:
+Strażnik **nie sprawdza**:
 
 - nazw i twierdzeń;
 - wartości zamienionych miejscami;
 - liczb zapisanych słownie;
-- zmiany pewności zdania („może” → „na pewno”);
+- zmian pewności spoza swojej listy słów, np. „istotnie” → „decydująco”;
 - rzeczownika po liczbie. Zmiana „5 osób” → „5 rodzin” przejdzie bez ostrzeżenia.
 
 Ostrzega za to przy każdej zmianie zapisu liczby, nawet gdy wartość jest ta sama (np. `12,5` → `12.5`, `12.03.2026` → `12 marca 2026`). Lepszy fałszywy alarm niż przeoczenie.
