@@ -114,6 +114,16 @@ class Przepisz(unittest.TestCase):
         self.assertIn(P1, prompt)
         self.assertIn("Tytuł", out.getvalue())
 
+    def test_style_options(self):
+        with FakeServer(ollama(R1)) as s:
+            with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+                code = szlif.main(["przepisz", self.source, "--serwer", s.url, "--czytelnosc", "prosta",
+                                   "--cel", "email"])
+            prompt = [r for r in s.requests if r[1] == "/api/chat"][0][3]["messages"][-1]["content"]
+        self.assertEqual(code, 0)
+        self.assertIn("Pisz prosto", prompt)
+        self.assertIn("Styl e-maila", prompt)
+
     def test_missing_file(self):
         err = io.StringIO()
         with contextlib.redirect_stderr(err):

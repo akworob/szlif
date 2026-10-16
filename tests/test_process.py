@@ -23,6 +23,11 @@ class Process(unittest.TestCase):
         self.assertEqual([p["kind"] for p in r["akapity"][1]["problemy"]], ["too_long", "certainty"])
         self.assertEqual(r["ostrzezenia"], 1)
 
+    def test_style_reaches_the_model(self):
+        backend = FakeBackend([Reply(R1, False), Reply(R1, False), Reply(P2, False)])
+        process_text(backend, "m", TEXT, rounds=2, readability="akademicka", purpose="naukowy")
+        self.assertIn("Styl naukowy", backend.calls[0][2])
+
     def test_progress_reported(self):
         seen = []
         backend = FakeBackend([Reply(R1, False), Reply(R1, False), Reply(P2, False)])

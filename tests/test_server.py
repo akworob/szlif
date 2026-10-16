@@ -248,6 +248,20 @@ class Runda(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual((r["tekst"], r["przyjeta"], r["stop"]), ("Kot jest Ali.", True, False))
 
+    def test_runda_passes_style(self):
+        backend = FakeBackend([Reply("Kot jest Ali i ma się dobrze.", False)])
+        with Running(backend) as s:
+            status, _, _ = s.call("POST", "/api/runda", runda(tekst="Ala ma kota, który ma się dobrze.",
+                                                              czytelnosc="akademicka", cel="naukowy"))
+        self.assertEqual(status, 200)
+        self.assertIn("akademickim", backend.calls[0][2])
+        self.assertIn("Styl naukowy", backend.calls[0][2])
+
+    def test_runda_unknown_style(self):
+        with Running(FakeBackend()) as s:
+            status, r, _ = s.call("POST", "/api/runda", runda(tekst="Ala ma kota.", cel="x"))
+        self.assertEqual((status, r["blad"]), (400, "Nieprawidłowe zapytanie."))
+
     def test_runda_rejects_empty(self):
         with Running(FakeBackend()) as s:
             status, r, _ = s.call("POST", "/api/runda", runda(tekst="  \n"))
@@ -289,6 +303,13 @@ class Stan(unittest.TestCase):
         self.assertIsNone(st["model"])
         self.assertIn("Brak modelu", st["blad"])
         self.assertIn("instaluj", st["blad"])
+
+    def test_stan_lists_styles(self):
+        with Running(FakeBackend(models=["m"])) as s:
+            st = s.call("GET", "/api/stan")[1]
+        self.assertEqual(st["czytelnosci"][0], ["normalna", "Normalna"])
+        self.assertEqual(st["cele"][0], ["ogolny", "Ogólny"])
+        self.assertIn(["naukowy", "Naukowy"], st["cele"])
 
     def test_stan_picks_bielik(self):
         with Running(FakeBackend(models=["llama3", BIELIK]), default_model=None) as s:

@@ -99,6 +99,8 @@
         <option value="3">wzmocniony (3 rundy)</option>
       </select>
     </label>
+    <label>Czytelność <select id="czytelnosc"><option value="normalna">Normalna</option></select></label>
+    <label>Cel <select id="cel"><option value="ogolny">Ogólny</option></select></label>
     <label><input type="checkbox" id="ukryte" checked> czyść ukryte znaki</label>
     <label><input type="checkbox" id="myslniki"> myślniki → przecinki</label>
     <label>Model <select id="model"></select></label>
@@ -205,6 +207,8 @@ async function loadState() {
     banners.append(el("div", "banner cloud", "Funkcje chmurowe Ollamy są włączone. Wyłącz je: " + st.polecenie + " instaluj"));
   }
   if (st.blad) banners.append(el("div", "banner error", st.blad));
+  fillChoices($("czytelnosc"), st.czytelnosci || [], remembered("czytelnosc"));
+  fillChoices($("cel"), st.cele || [], remembered("cel"));
   const select = $("model");
   select.replaceChildren();
   const models = st.modele.slice();
@@ -218,8 +222,28 @@ async function loadState() {
   updateCount();
 }
 
+function fillChoices(select, choices, chosen) {
+  if (!choices.length) return;
+  select.replaceChildren();
+  for (const [value, label] of choices) {
+    const option = el("option", "", label);
+    option.value = value;
+    option.selected = value === chosen;
+    select.append(option);
+  }
+}
+
+// The chosen mode and style stay for next time, in this browser only.
+function remembered(name) {
+  try { return localStorage.getItem("szlif." + name); } catch (e) { return null; }
+}
+function remember(name, value) {
+  try { localStorage.setItem("szlif." + name, value); } catch (e) { /* private mode: not kept */ }
+}
+
 function options() {
-  return {tekst: $("tekst").value, ukryte: $("ukryte").checked, myslniki: $("myslniki").checked};
+  return {tekst: $("tekst").value, ukryte: $("ukryte").checked, myslniki: $("myslniki").checked,
+          czytelnosc: $("czytelnosc").value || "normalna", cel: $("cel").value || "ogolny"};
 }
 
 function busy(text) {
@@ -419,6 +443,8 @@ async function checkMeaning() {
 }
 
 $("tekst").addEventListener("input", updateCount);
+for (const name of ["tryb", "czytelnosc", "cel"]) $(name).addEventListener("change", () => remember(name, $(name).value));
+if (remembered("tryb")) $("tryb").value = remembered("tryb");
 $("model").addEventListener("change", updateCount);
 $("przetworz").addEventListener("click", processText);
 $("wyczysc").addEventListener("click", cleanOnly);

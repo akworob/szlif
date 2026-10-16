@@ -17,7 +17,7 @@ from .backends import Backend, BackendError
 from .blocks import split_blocks
 from .cleaner import clean, summary
 from .guard import check, missing_terms
-from .rewrite import MAX_CHARS, MODES, run_round
+from .rewrite import MAX_CHARS, MODES, PURPOSE, READABILITY, run_round
 from .verify import build_prompt, changed_pairs, check_meaning, chunk_pairs
 from .view import build_view
 
@@ -148,7 +148,9 @@ class Handler(BaseHTTPRequestHandler):
         cloud = backend.cloud_disabled() if backend.kind == "ollama" and backend.is_local and models else None
         return {"rodzaj": backend.kind, "serwer": backend.url, "lokalny": backend.is_local,
                 "chmura_wylaczona": cloud, "modele": models, "model": model, "limit": MAX_CHARS,
-                "tryby": MODES, "blad": error, "polecenie": COMMAND}
+                "tryby": MODES, "blad": error, "polecenie": COMMAND,
+                "czytelnosci": [[k, label] for k, (label, _) in READABILITY.items()],
+                "cele": [[k, label] for k, (label, _) in PURPOSE.items()]}
 
     def _bloki(self, body: Dict) -> Dict:
         """The cleaned text in blocks; the page rewrites the paragraphs one at a time."""
@@ -193,7 +195,8 @@ class Handler(BaseHTTPRequestHandler):
         original = clean(tekst, hidden, dashes).text
         try:
             return run_round(self.server.backend, model, original, current or original,
-                             int(body.get("runda", 1)), hidden, dashes)
+                             int(body.get("runda", 1)), hidden, dashes,
+                             str(body.get("czytelnosc") or "normalna"), str(body.get("cel") or "ogolny"))
         except (TypeError, ValueError):
             raise Invalid(400, "Nieprawidłowe zapytanie.")
 

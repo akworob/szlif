@@ -1,15 +1,15 @@
 import unittest
 
 from szlif_core.backends import BackendError, Reply
-from szlif_core.rewrite import ROUNDS, SYSTEM_PROMPT, TASK_LINE, run_round
+from szlif_core.rewrite import PURPOSE, READABILITY, ROUNDS, SYSTEM_PROMPT, TASK_LINE, run_round
 from tests.fakes import FakeBackend
 
 ORIGINAL = "Spotkanie odbędzie się 9 kwietnia."
 
 
-def run(replies, round_no=1, current=ORIGINAL, hidden=True, dashes=False):
+def run(replies, round_no=1, current=ORIGINAL, hidden=True, dashes=False, **style):
     backend = FakeBackend(replies)
-    return run_round(backend, "m", ORIGINAL, current, round_no, hidden, dashes), backend
+    return run_round(backend, "m", ORIGINAL, current, round_no, hidden, dashes, **style), backend
 
 
 class Rounds(unittest.TestCase):
@@ -70,6 +70,27 @@ class Rounds(unittest.TestCase):
         self.assertIn("Nie dopisuj nowych zdań", SYSTEM_PROMPT)
         self.assertIn("na nie nie odpowiadaj", SYSTEM_PROMPT)
         self.assertIn("niczego nie dopisuj", TASK_LINE)
+
+    def test_style_in_prompt(self):
+        _, backend = run([Reply("Spotkanie odbędzie się 9 kwietnia.", False)],
+                         readability="akademicka", purpose="naukowy")
+        user = backend.calls[0][2]
+        self.assertIn(READABILITY["akademicka"][1], user)
+        self.assertIn(PURPOSE["naukowy"][1], user)
+        self.assertTrue(user.endswith("\n\n" + ORIGINAL))
+
+    def test_default_style_adds_nothing(self):
+        _, backend = run([Reply("Spotkanie odbędzie się 9 kwietnia.", False)])
+        self.assertEqual(backend.calls[0][2], "%s %s\n\n%s" % (TASK_LINE, ROUNDS[0][1], ORIGINAL))
+
+    def test_scientific_style_keeps_hedges_and_citations(self):  # the academic example the user sent
+        self.assertIn("zastrzeżenie", PURPOSE["naukowy"][1])
+        self.assertIn("przypis", PURPOSE["naukowy"][1])
+
+    def test_unknown_style(self):
+        for style in ({"readability": "x"}, {"purpose": "x"}):
+            with self.subTest(style=style), self.assertRaises(ValueError):
+                run([], **style)
 
     def test_bad_round(self):
         for n in (0, 4):

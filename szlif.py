@@ -21,7 +21,7 @@ from typing import List, Optional
 from szlif_core import COMMAND, config
 from szlif_core.backends import BackendError, make_backend
 from szlif_core.process import process_text, warning_lines
-from szlif_core.rewrite import MODES
+from szlif_core.rewrite import MODES, PURPOSE, READABILITY
 from szlif_core.server import make_server
 from szlif_core.verify import build_prompt, check_meaning
 
@@ -61,6 +61,8 @@ def parse_args(argv: Optional[List[str]]) -> argparse.Namespace:
     rw.add_argument("--model-weryfikatora", help="inny model do sprawdzenia (domyślnie ten sam)")
     rw.add_argument("--bez-czyszczenia", action="store_true", help="nie czyść ukrytych znaków")
     rw.add_argument("--myslniki", action="store_true", help="zamieniaj myślniki na przecinki")
+    rw.add_argument("--czytelnosc", choices=list(READABILITY), default="normalna", help="czytelność tekstu")
+    rw.add_argument("--cel", choices=list(PURPOSE), default="ogolny", help="cel tekstu (styl)")
     for name in ("--serwer", "--model", "--rodzaj"):
         rw.add_argument(name, default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     return p.parse_args(argv)
@@ -115,7 +117,8 @@ def rewrite_file(args: argparse.Namespace) -> int:
             say("Brak modelu. Uruchom: %s instaluj" % COMMAND)
             return 1
         say("Model: %s" % model)
-        result = process_text(backend, model, text, rounds, not args.bez_czyszczenia, args.myslniki, progress)
+        result = process_text(backend, model, text, rounds, not args.bez_czyszczenia, args.myslniki, progress,
+                              args.czytelnosc, args.cel)
     except BackendError as e:
         say("\n%s" % e)
         return 1

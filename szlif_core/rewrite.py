@@ -42,12 +42,42 @@ ROUNDS: List[Tuple[str, str]] = [
 ]
 
 
+# Writing styles, two choices as in the author's earlier tool: how hard the text reads and what it
+# is for; key -> (label on the page, the instruction added to every round). The defaults add
+# nothing. A style asks for a register, never for new content, and the guard checks every style.
+READABILITY = {
+    "normalna": ("Normalna", ""),
+    "prosta": ("Prosta", "Pisz prosto: krótsze zdania i codzienne słowa. Trudne słowo zamień na prostsze tylko "
+                         "wtedy, gdy sens zostaje ten sam."),
+    "akademicka": ("Akademicka", "Pisz językiem akademickim: precyzyjnie, pełnymi zdaniami, z terminologią "
+                                 "fachową, bez potocyzmów."),
+    "ekspercka": ("Ekspercka", "Pisz jak specjalista do specjalistów: zwięźle i gęsto, z terminologią fachową."),
+}
+PURPOSE = {
+    "ogolny": ("Ogólny", ""),
+    "naukowy": ("Naukowy", "Styl naukowy: rzeczowo i bezosobowo, bez ocen i emocji. Zachowaj każde zastrzeżenie "
+                           "(„może”, „nie zawsze”, „w wielu”), każdy element wyliczenia i każdy przypis."),
+    "biznesowy": ("Biznesowy", "Styl biznesowy: konkretnie, uprzejmie i bez ozdobników."),
+    "email": ("E-mail", "Styl e-maila: uprzejmie i do rzeczy. Zachowaj powitanie i podpis, jeśli są w tekście, "
+                        "i nie dodawaj nowych."),
+    "esej": ("Esej", "Styl eseju: płynny wywód z naturalnymi przejściami między myślami."),
+    "marketingowy": ("Marketingowy", "Styl marketingowy: lekko i przekonująco, z korzyścią dla czytelnika na "
+                                     "początku, ale bez nowych obietnic, superlatywów i liczb, których nie ma w tekście."),
+    "prawny": ("Prawny", "Styl prawniczy: precyzyjnie, jednoznacznie i formalnie. Nie upraszczaj terminów "
+                         "prawnych i nie zmieniaj zakresu praw ani obowiązków."),
+}
+
+
 def run_round(backend: Backend, model: str, original: str, current: str, round_no: int,
-              hidden: bool, dashes: bool) -> Dict:
+              hidden: bool, dashes: bool, readability: str = "normalna", purpose: str = "ogolny") -> Dict:
     """One round: original is the cleaned original, current the text this round rewrites."""
     if not 1 <= round_no <= len(ROUNDS):
         raise ValueError("round_no must be 1..%d" % len(ROUNDS))
-    user = "%s %s\n\n%s" % (TASK_LINE, ROUNDS[round_no - 1][1], current)
+    if readability not in READABILITY or purpose not in PURPOSE:
+        raise ValueError("unknown style %s/%s" % (readability, purpose))
+    task = " ".join(part for part in (TASK_LINE, ROUNDS[round_no - 1][1], READABILITY[readability][1],
+                                      PURPOSE[purpose][1]) if part)
+    user = "%s\n\n%s" % (task, current)
     try:
         reply = backend.chat(model, SYSTEM_PROMPT, user)
         out = clean(reply.text.strip(), hidden, dashes).text.strip()

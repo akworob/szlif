@@ -39,7 +39,8 @@ def warning_lines(result: Dict) -> List[str]:
 
 
 def process_text(backend: Backend, model: str, text: str, rounds: int = 2, hidden: bool = True,
-                 dashes: bool = False, progress: Optional[Progress] = None) -> Dict:
+                 dashes: bool = False, progress: Optional[Progress] = None, readability: str = "normalna",
+                 purpose: str = "ogolny") -> Dict:
     """{"wynik", "akapity", "problemy", "czyszczenie", "ostrzezenia", "znikniete"}. Numbers are checked
     on the whole text ("problemy"); length, paragraphs, comments and certainty per paragraph
     ("akapity"); "znikniete" lists long words of the original with no trace in the result."""
@@ -58,7 +59,8 @@ def process_text(backend: Backend, model: str, text: str, rounds: int = 2, hidde
         for round_no in range(1, rounds + 1):
             if progress:
                 progress(done, todo, round_no)
-            res = run_round(backend, model, block["tekst"], current or block["tekst"], round_no, hidden, dashes)
+            res = run_round(backend, model, block["tekst"], current or block["tekst"], round_no, hidden, dashes,
+                            readability, purpose)
             if res["przyjeta"]:
                 current, problems = res["tekst"], res["problemy"]
             if res["stop"]:
