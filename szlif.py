@@ -15,15 +15,16 @@ if sys.version_info < (3, 9):
 import argparse
 import json
 import os
+import re
 import webbrowser
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from szlif_core import COMMAND, config
 from szlif_core.backends import BackendError, make_backend
 from szlif_core.process import process_text, warning_lines
 from szlif_core.rewrite import MODES
 from szlif_core.server import make_server
-from szlif_core.verify import build_prompt
+from szlif_core.verify import build_prompt, chunk_pairs
 
 DEFAULT_SERVER = "http://127.0.0.1:11434"
 
@@ -64,13 +65,47 @@ def parse_args(argv: Optional[List[str]]) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+def _writable(path: str) -> bool:
+    folder = os.path.dirname(os.path.abspath(path))
+    return os.path.isdir(folder) and os.access(folder, os.W_OK)
+
+
+def _read_input(name: str) -> str:
+    """UTF-8 from a file or from standard input; on Windows a pipe would otherwise be read in
+    the console's code page and Polish letters would silently turn into other ones."""
+    if name == "-":
+        return sys.stdin.buffer.read().decode("utf-8-sig")
+    with open(name, encoding="utf-8-sig") as f:
+        return f.read()
+
+
+def _check_meaning(backend, checker: str, pairs, lines) -> Dict:
+    """Ask the model to compare every pair, a few paragraphs per call so that a long text is
+    not cut off; an error is recorded, not raised, since the rewrite itself is done."""
+    answers = []
+    try:
+        for chunk in chunk_pairs(pairs):
+            numbers = {n for n, _, _ in chunk}
+            notes = [l for l in lines if not re.match(r"Akapit \d+:", l) or int(l.split()[1][:-1]) in numbers]
+            reply = backend.chat(checker, "Jesteś uważnym weryfikatorem tekstu.", build_prompt(chunk, notes))
+            answers.append(reply.text.strip() + ("\n(odpowiedź ucięta)" if reply.cut else ""))
+    except BackendError as e:
+        return {"model": checker, "odpowiedz": "\n\n".join(answers), "blad": str(e)}
+    return {"model": checker, "odpowiedz": "\n\n".join(answers)}
+
+
 def rewrite_file(args: argparse.Namespace) -> int:
     """szlif.py przepisz: the page's work without the page, for scripts and agents."""
     def say(text: str, end: str = "\n") -> None:
         print(text, end=end, file=sys.stderr, flush=True)
 
+    outputs = [p for p in (args.wynik, args.raport, args.weryfikacja) if p]
+    unwritable = [p for p in outputs if not _writable(p)]
+    if unwritable:  # before any model work, which can take minutes
+        say("Nie mogę zapisać pliku: %s (brak folderu albo uprawnień)." % ", ".join(unwritable))
+        return 1
     try:
-        text = sys.stdin.read() if args.plik == "-" else open(args.plik, encoding="utf-8").read()
+        text = _read_input(args.plik)
     except (OSError, UnicodeDecodeError) as e:
         say("Nie mogę przeczytać pliku %s: %s" % (args.plik, e))
         return 1
@@ -78,6 +113,13 @@ def rewrite_file(args: argparse.Namespace) -> int:
         say("Plik jest pusty.")
         return 1
     backend = make_backend(args.serwer, args.rodzaj, api_key=os.environ.get("SZLIF_API_KEY"))
+    rounds = MODES[args.tryb]
+    tty = sys.stderr.isatty()
+
+    def progress(done: int, todo: int, rnd: int) -> None:
+        if tty:
+            say("\rAkapit %d z %d do przepisania · runda %d z %d   " % (done, todo, rnd, rounds), end="")
+
     try:
         model = args.model or config.load().get("model")
         if not model:
@@ -86,45 +128,48 @@ def rewrite_file(args: argparse.Namespace) -> int:
         if not model:
             say("Brak modelu. Uruchom: %s instaluj" % COMMAND)
             return 1
-        rounds = MODES[args.tryb]
-        result = process_text(backend, model, text, rounds, not args.bez_czyszczenia, args.myslniki,
-                              lambda done, todo, rnd: say("\rAkapit %d z %d · runda %d z %d   " % (done, todo, rnd, rounds),
-                                                          end=""))
+        say("Model: %s" % model)
+        result = process_text(backend, model, text, rounds, not args.bez_czyszczenia, args.myslniki, progress)
     except BackendError as e:
         say("\n%s" % e)
         return 1
-    say("")
-    if args.wynik:
-        with open(args.wynik, "w", encoding="utf-8") as f:
-            f.write(result["wynik"])
-    else:
-        sys.stdout.write(result["wynik"])
+    except KeyboardInterrupt:
+        say("\nPrzerwano.")
+        return 1
+    if tty:
+        say("")
     lines = warning_lines(result)
-    prompt = build_prompt([(a["numer"], a["przed"], a["po"]) for a in result["akapity"]], lines)
-    if args.weryfikacja:
-        with open(args.weryfikacja, "w", encoding="utf-8") as f:
-            f.write(prompt)
+    pairs = [(a["numer"], a["przed"], a["po"]) for a in result["akapity"]]
     check = None
-    if args.sprawdz and prompt:
+    if args.sprawdz and any(before.strip() != after.strip() for _, before, after in pairs):
         checker = args.model_weryfikatora or model
         say("Sprawdzam sens modelem %s…" % checker)
-        try:
-            answer = backend.chat(checker, "Jesteś uważnym weryfikatorem tekstu.", prompt).text.strip()
-        except BackendError as e:
-            say(str(e))
-            return 1
-        check = {"model": checker, "odpowiedz": answer}
-    if args.raport:
-        report = dict(result, model=model, tryb=args.tryb)
-        if check:
-            report["weryfikacja"] = check
-        with open(args.raport, "w", encoding="utf-8") as f:
-            json.dump(report, f, ensure_ascii=False, indent=2)
+        check = _check_meaning(backend, checker, pairs, lines)
+    report = dict(result, model=model, tryb=args.tryb)
+    if check:
+        report["weryfikacja"] = check
+    try:
+        if args.wynik:
+            with open(args.wynik, "w", encoding="utf-8") as f:
+                f.write(result["wynik"])
+        else:
+            sys.stdout.write(result["wynik"])
+        if args.raport:
+            with open(args.raport, "w", encoding="utf-8") as f:
+                json.dump(report, f, ensure_ascii=False, indent=2)
+        if args.weryfikacja:
+            with open(args.weryfikacja, "w", encoding="utf-8") as f:
+                f.write(build_prompt(pairs, lines))
+    except OSError as e:
+        say("Nie mogę zapisać wyniku: %s" % e)
+        return 1
     say("Szlif: przepisane akapity: %d, ostrzeżenia: %d." % (len(result["akapity"]), result["ostrzezenia"]))
     for line in lines:
         say("  " + line)
     if check:
         say("Weryfikacja (%s):\n%s" % (check["model"], check["odpowiedz"]))
+        if "blad" in check:
+            say("Weryfikacja nie powiodła się: %s" % check["blad"])
     return 3 if result["ostrzezenia"] else 0
 
 

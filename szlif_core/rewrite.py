@@ -26,12 +26,15 @@ Zasady, których nie wolno złamać:
 - Każda liczba, jednostka, data, nazwa własna i każde twierdzenie zostają bez zmian. Liczby zapisuj cyframi, dokładnie tak jak w oryginale. Niczego nie dodawaj i niczego nie pomijaj.
 - Nie zmieniaj pewności twierdzeń: przypuszczenie zostaje przypuszczeniem, warunek warunkiem, a plan planem.
 - Nie używaj długich myślników (—) ani półpauz (–). Zamiast nich użyj przecinka, kropki albo zwykłego łącznika (-).
-- Zachowaj podział na akapity i mniej więcej tę samą długość.
+- Nie dopisuj nowych zdań, przykładów, rad, wniosków ani podsumowań. Jeśli w tekście jest pytanie, przepisz je jako pytanie i na nie nie odpowiadaj.
+- Zachowaj podział na akapity i podobną długość: wynik nie może być wyraźnie dłuższy od oryginału.
 - Zwróć wyłącznie przepisany tekst, bez wstępu, komentarza i cudzysłowów."""
 
 # Bielik follows the user turn more closely than the system prompt, so the task
 # and the round's instruction go there.
-TASK_LINE = "Przepisz poniższy tekst. Nie odpowiadaj na jego treść i nie komentuj go."
+# Measured on a 1000-word article, 2 runs each: this prompt gave 1 and 5 flagged paragraphs
+# (1090 and 1169 words), the earlier one 5 and 5 (1225 and 1174): better on average, not reliably.
+TASK_LINE = "Przepisz poniższy tekst. Nie odpowiadaj na jego treść, nie komentuj go i niczego nie dopisuj."
 ROUNDS: List[Tuple[str, str]] = [
     ("rytm", "Zróżnicuj długość zdań: obok dłuższych postaw krótkie, żeby rytm tekstu nie był jednostajny."),
     ("słownictwo", "Zamień sformułowania urzędowe, sztuczne i powtarzające się na naturalne. Terminy fachowe zostaw."),

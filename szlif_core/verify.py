@@ -32,3 +32,21 @@ def build_prompt(pairs: List[Pair], warnings: List[str]) -> str:
                        for n, before, after in changed)
     return "%s\n\nUwagi strażnika Szlifa (sprawdzają liczby i długość, nie sens):\n%s\n\n%s\n" % (
         VERIFY_PROMPT, guard, body)
+
+
+def chunk_pairs(pairs: List[Pair], max_chars: int = 6000) -> List[List[Pair]]:
+    """Pairs in groups small enough for one check each: a long prompt in one call can be cut
+    off by the model's context, instructions first."""
+    chunks: List[List[Pair]] = []
+    current: List[Pair] = []
+    size = 0
+    for pair in pairs:
+        length = len(pair[1]) + len(pair[2])
+        if current and size + length > max_chars:
+            chunks.append(current)
+            current, size = [], 0
+        current.append(pair)
+        size += length
+    if current:
+        chunks.append(current)
+    return chunks

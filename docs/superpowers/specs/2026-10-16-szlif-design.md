@@ -282,3 +282,14 @@ Test na publicznym artykule medycznym (ok. 1000 słów, bez liczb) pokazał trzy
 - **Runda, która zwraca tekst bez zmian, kończy serię** bez ostrzeżenia.
 - **Instalator** traktuje ostrzeżenie strażnika przy próbie jako informację, a jako awarię tylko brak tekstu.
 - **README** opisuje wynik testu i detektorów, a także ostrzega przed publikowaniem tekstów medycznych, prawnych i finansowych bez eksperta.
+- **Weryfikacja i automatyzacja** (decyzja użytkownika z 2026-10-16):
+  - przycisk „Kopiuj do weryfikacji” kopiuje prompt z parami akapitów PRZED i PO oraz uwagami strażnika;
+  - `szlif.py przepisz` z raportem JSON, plikiem promptu i `--sprawdz`; to ostatnie zleca lokalnemu modelowi porównanie, po kilka akapitów naraz;
+  - README ma gotowe polecenie dla agentów.
+  - Prompt jest prosty, „Akapit N: BEZ ZMIAN” albo lista DODAJE / POMIJA / ZMIENIA. Pomiar: Bielik 11B przy tabeli z sześcioma kategoriami przeoczył dopisane zdanie, a przy tym formacie je znalazł.
+- **Polecenie dla modelu zabrania dopisywania i odpowiadania na pytania z tekstu.** Pomiar po 2 przebiegi na tym samym artykule: 1 i 5 zgłoszonych akapitów wobec 5 i 5 wcześniej, czyli średnio lepiej, ale niepewnie.
+- **Po recenzji kodu:**
+  - akapit kończy się też pojedynczym Enterem (wklejka z Worda czy Google Docs), a wiersz złamany w środku zdania łączy się z następnym;
+  - pozycje list, nagłówki Markdown, cytaty i tabele są osobnymi blokami i zostają bez zmian;
+  - ostrzeżenie „meta” wymaga co najmniej dwóch słów o pisaniu w jednym zdaniu;
+  - liczba przeniesiona między akapitami jest zgłaszana przy akapicie.

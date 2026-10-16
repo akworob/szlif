@@ -66,6 +66,11 @@ class Rounds(unittest.TestCase):
         r, _ = run([Reply("Spotkanie jest 9 kwietnia.", False)])
         self.assertEqual((r["stop"], r["bez_zmian"]), (False, False))
 
+    def test_prompt_forbids_additions(self):  # measured: the model appended advice and answered questions
+        self.assertIn("Nie dopisuj nowych zdań", SYSTEM_PROMPT)
+        self.assertIn("na nie nie odpowiadaj", SYSTEM_PROMPT)
+        self.assertIn("niczego nie dopisuj", TASK_LINE)
+
     def test_bad_round(self):
         for n in (0, 4):
             with self.subTest(n=n), self.assertRaises(ValueError):

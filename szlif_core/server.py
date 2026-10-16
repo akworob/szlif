@@ -151,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
             pairs = [(int(p["numer"]), str(p["przed"]), str(p["po"])) for p in pairs]
             if not isinstance(warnings, list):
                 raise TypeError
-        except (TypeError, KeyError, ValueError):
+        except (TypeError, KeyError, ValueError, OverflowError):
             raise Invalid(400, "Nieprawidłowe zapytanie.")
         return {"prompt": build_prompt(pairs, [str(w) for w in warnings])}
 

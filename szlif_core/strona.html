@@ -251,7 +251,7 @@ function render(view, notes) {
     if (note.info) { facts.append(el("div", "stopped", note.info)); continue; }
     const box = el("div", "problem");
     box.append(el("b", "", "Akapit " + note.number + " („" + note.start + "”)"));
-    for (const p of note.problems) box.append(el("div", "", p.message));
+    for (const p of note.problems) box.append(el("div", "", detail(p)));
     if (note.reason) box.append(el("div", "stopped", note.reason));
     facts.append(box);
   }
@@ -293,11 +293,24 @@ async function rewriteBlock(base, block, rounds, model, signal, progress) {
   return {tekst: current === null ? block.tekst : current, cut, problems, reason};
 }
 
+function detail(p) {
+  return p.message + (p.missing.length ? " Brakuje: " + p.missing.join(", ") + "." : "")
+    + (p.added.length ? " Dodane: " + p.added.join(", ") + "." : "");
+}
+
+// A paragraph's numbers warning stays unless the whole-text check (marked in the text) covers it,
+// e.g. a number moved to another paragraph keeps the whole-text count and only shows here.
+function covered(p, whole) {
+  if (p.kind !== "values") return false;
+  const missing = new Set(whole.flatMap((w) => w.missing)), added = new Set(whole.flatMap((w) => w.added));
+  return p.missing.every((m) => missing.has(m)) && p.added.every((a) => added.has(a));
+}
+
 async function processText() {
   const rounds = Number($("tryb").value), base = options(), model = $("model").value;
   controller = new AbortController();
   $("result").hidden = true;
-  const notes = [], out = [], pairs = [];
+  const records = [], out = [], pairs = [];
   let cut = false;
   toVerify = null;
   try {
@@ -309,23 +322,26 @@ async function processText() {
       if (block.tekst) number++;
       if (!block.przepisz) { out.push(block.tekst + block.odstep); continue; }
       done++;
+      const n = number, d = done;
       const res = await rewriteBlock(base, block, rounds, model, controller.signal,
-        (r) => busy("Akapit " + done + " z " + todo + " · runda " + r + " z " + rounds + "…"));
+        (r) => busy("Akapit " + n + " (" + d + " z " + todo + " do przepisania) · runda " + r + " z " + rounds + "…"));
       cut = cut || res.cut;
-      const shown = res.problems.filter((p) => p.kind !== "values");
-      if (shown.length || res.reason) notes.push({number, start: firstWords(block.tekst), problems: shown, reason: res.reason});
+      records.push({number, start: firstWords(block.tekst), problems: res.problems, reason: res.reason});
       pairs.push({numer: number, przed: block.tekst, po: res.tekst});
       out.push(res.tekst + block.odstep);
     }
-    if (!todo) notes.push({info: "Nie ma tu akapitu do przepisania: nagłówki, listy i akapity krótsze niż 12 słów zostają bez zmian."});
     busy("Porównuję…");
     const view = await api("/api/widok", Object.assign({}, base, {wynik: out.join(""), uciete: cut}), controller.signal);
-    const warnings = view.problemy.filter((p) => p.kind === "values").map((p) => p.message
-      + (p.missing.length ? " Brakuje: " + p.missing.join(", ") + "." : "") + (p.added.length ? " Dodane: " + p.added.join(", ") + "." : ""));
-    for (const note of notes) {
-      for (const p of note.problems) warnings.push("Akapit " + note.number + ": " + p.message);
-      if (note.reason) warnings.push("Akapit " + note.number + ": " + note.reason);
+    const whole = view.problemy.filter((p) => p.kind === "values");
+    const notes = [], warnings = whole.map(detail);
+    for (const r of records) {
+      const shown = r.problems.filter((p) => !covered(p, whole));
+      if (!shown.length && !r.reason) continue;
+      notes.push({number: r.number, start: r.start, problems: shown, reason: r.reason});
+      for (const p of shown) warnings.push("Akapit " + r.number + ": " + detail(p));
+      if (r.reason) warnings.push("Akapit " + r.number + ": " + r.reason);
     }
+    if (!todo) notes.push({info: "Nie ma tu akapitu do przepisania: nagłówki, listy i akapity krótsze niż 12 słów zostają bez zmian."});
     toVerify = {pary: pairs, uwagi: warnings};
     render(view, notes);
   } catch (e) {
@@ -366,8 +382,13 @@ $("weryfikuj").addEventListener("click", async () => {
   try {
     const prompt = (await api("/api/weryfikacja", toVerify)).prompt;
     if (!prompt) { showError("Żaden akapit się nie zmienił, więc nie ma czego sprawdzać."); return; }
-    if (await copyText(prompt)) $("weryfikuj").textContent = "Skopiowano prompt";
-    else showError("Nie udało się skopiować promptu.");
+    if (!(await copyText(prompt))) { showError("Nie udało się skopiować promptu."); return; }
+    $("weryfikuj").textContent = "Skopiowano prompt";
+    if (prompt.length > 6000) {
+      $("facts").append(el("div", "stopped", "Prompt jest długi (" + grouped(prompt.length) + " znaków). Bielik w „ollama run” "
+        + "może go uciąć. Wklej go do modelu z dużym kontekstem albo użyj „szlif.py przepisz --sprawdz”, "
+        + "który sprawdza tekst po kilka akapitów."));
+    }
   } catch (e) { showError(e.message); }
 });
 updateCount();

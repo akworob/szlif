@@ -8,9 +8,9 @@ Szlif przepisuje polski tekst modelem Bielik i czyści go z ukrytych znaków. Mo
 
 ## Co robi
 
-- **Przepisywanie Bielikiem.** Akapit po akapicie, w jednej, dwóch albo trzech rundach: rytm zdań, słownictwo, przejścia między zdaniami. Nagłówki, listy i akapity krótsze niż 12 słów zostają bez zmian. Model działa lokalnie przez [Ollamę](https://ollama.com).
+- **Przepisywanie Bielikiem.** Akapit po akapicie, w jednej, dwóch albo trzech rundach: rytm zdań, słownictwo, przejścia między zdaniami. Akapit kończy się pustym wierszem albo zwykłym Enterem (tak wkleja się tekst z Worda czy Google Docs), a wiersz złamany w środku zdania (np. z PDF) jest łączony z następnym. Nagłówki, pozycje list, cytaty, tabele i akapity krótsze niż 12 słów zostają bez zmian. Model działa lokalnie przez [Ollamę](https://ollama.com).
 - **Czyszczenie ukrytych znaków.** Usuwa spacje o zerowej szerokości, znacznik BOM, miękkie dywizy, znaki sterujące kierunkiem tekstu i ukryty tekst ze znaków „tag”. Nietypowe spacje zamienia na zwykłe. Litery z cyrylicy lub greki udające łacińskie zamienia na łacińskie, ale tylko wewnątrz słów, które mają też litery łacińskie. Na życzenie zamienia myślniki na przecinki. Każda zmiana jest widoczna na stronie jako pomarańczowa etykieta. Czyszczenie działa także bez modelu.
-- **Strażnik.** Ostrzega, gdy w wyniku brakuje liczby, jednostki, daty albo godziny z oryginału albo gdy pojawiła się nowa. Ostrzega też, gdy akapit wyraźnie się skrócił (poniżej 70% słów) albo urósł (powyżej 140%), gdy zmieniła się liczba akapitów i gdy wynik zaczyna mówić o samym tekście („rytm”, „zdania”). To ostatnie znaczy zwykle, że do tekstu przeciekło polecenie dla modelu.
+- **Strażnik.** Ostrzega, gdy w wyniku brakuje liczby, jednostki, daty albo godziny z oryginału albo gdy pojawiła się nowa. Ostrzega też, gdy akapit wyraźnie się skrócił (poniżej 70% słów) albo urósł (powyżej 140%, a przy krótkim akapicie o więcej niż 6 słów), gdy zmieniła się liczba akapitów i gdy wynik zaczyna mówić o samym tekście („rytm”, „zdania”). To ostatnie znaczy zwykle, że do tekstu przeciekło polecenie dla modelu.
 
 ## Czego Szlif nie robi
 
@@ -107,7 +107,8 @@ Po przetworzeniu kliknij **Kopiuj do weryfikacji**. W schowku jest prompt z ponu
 
 - **Lokalnie, do Bielika.** Tekst nie wychodzi z komputera:
   - macOS: `ollama run hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q6_K "$(pbpaste)"`
-  - Windows (PowerShell, niesprawdzone): `ollama run hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q6_K (Get-Clipboard -Raw)`
+  - Windows (PowerShell, niesprawdzone; PowerShell 5.1 potrafi zepsuć cudzysłowy w tekście, więc pewniej użyć `szlif.py przepisz --sprawdz`): `ollama run hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q6_K (Get-Clipboard -Raw)`
+- **Długie teksty:** `ollama run` ma zwykle mały kontekst i może uciąć długi prompt, zaczynając od instrukcji. Przy więcej niż kilku akapitach użyj `szlif.py przepisz --sprawdz` albo modelu z dużym kontekstem.
 - **Do Claude, ChatGPT, Gemini albo Groka.** Wtedy tekst trafia do chmury, więc nie rób tego z tekstami poufnymi.
 
 **Uczciwie:** weryfikator też się myli. W naszym teście Bielik wyłapał dopisaną radę, zmianę „może” → „zawsze” i pominięcie, ale wypisywał też zmiany samego stylu. W innej wersji promptu (z tabelą) przeoczył dopisane zdanie. Lepszą drugą parą oczu jest model inny niż ten, który przepisywał. Ostatnie słowo i tak należy do człowieka.
@@ -128,8 +129,10 @@ python3 szlif.py przepisz tekst.txt --wynik wynik.txt --raport raport.json --wer
 - **`--weryfikacja PLIK`**: prompt dla drugiego modelu.
 - **`--sprawdz`**: model od razu sprawdza sens, lokalnie. Inny model z Ollamy wskażesz przez `--model-weryfikatora NAZWA`.
 - **`--serwer`, `--model`**: jak przy stronie.
-- **Kod wyjścia:** 0 to brak ostrzeżeń strażnika, 3 to ostrzeżenia do przeczytania, 1 to błąd. Odpowiedź weryfikatora nie zmienia kodu wyjścia, bo to tekst do przeczytania, a nie werdykt.
-- **Brak limitu długości.** W wierszu poleceń nie obowiązuje limit 12 000 znaków, bo każdy akapit idzie do modelu osobno.
+- **Kod wyjścia:** 0 to brak ostrzeżeń strażnika, 3 to ostrzeżenia do przeczytania, 1 to błąd, 2 to źle zapisane polecenie. Odpowiedź weryfikatora nie zmienia kodu wyjścia, bo to tekst do przeczytania, a nie werdykt.
+- **Brak limitu długości.** W wierszu poleceń nie obowiązuje limit 12 000 znaków, bo każdy akapit idzie do modelu osobno. `--sprawdz` też sprawdza tekst po kilka akapitów naraz, żeby długi prompt nie został ucięty.
+- **Windows:** zamiast `python3` pisz `py`. Pliki i standardowe wejście są czytane jako UTF-8.
+- **Bez nadpisywania na ślepo.** Jeśli folder pliku wynikowego nie istnieje, Szlif kończy się błędem, zanim model zacznie pracę. Raport zapisuje się także wtedy, gdy samo sprawdzanie (`--sprawdz`) się nie uda.
 
 ### Prompt dla agenta (Claude Code, Codex, Gemini CLI i podobne)
 
@@ -205,6 +208,12 @@ Szlif sprawdziliśmy na publicznym artykule medycznym. Ma około 1000 słów i 4
   - dodał radę sprzeczną z oryginałem.
 
   Po tym teście strażnik pilnuje też długości, liczby akapitów i „komentarzy o tekście”. W powtórce zgłosił 7 z 31 przepisanych akapitów: w 5 model dopisał treść już w rundzie 1 (204–294% słów), a w 2 strażnik odrzucił rundę 2. Wszystkie 7 zgłoszeń było trafnych.
+
+  Potem polecenie dla modelu zabroniło dopisywania i odpowiadania na pytania. Pomiar, po 2 przebiegi na tym samym artykule:
+  - nowe polecenie: 1 i 5 zgłoszonych akapitów (1090 i 1169 słów);
+  - poprzednie: 5 i 5 (1225 i 1174 słów).
+
+  Średnio jest lepiej, ale nie pewnie, więc strażnik dalej jest potrzebny.
 - **Teksty medyczne, prawne i finansowe** nie nadają się do publikacji bez sprawdzenia przez eksperta. Zmiana „może” na „często” to w nich zmiana faktu.
 
 ### Detektory AI

@@ -13,15 +13,26 @@ from .rewrite import run_round
 Progress = Callable[[int, int, int], None]  # paragraph done, paragraphs to do, round
 
 
+def covered(problem: Dict, whole: List[Dict]) -> bool:
+    """A paragraph's numbers problem the whole-text check already reports (and marks in the
+    text). One that it does not, such as a number moved to another paragraph, stays."""
+    if problem["kind"] != "values":
+        return False
+    missing = {m for p in whole for m in p["missing"]}
+    added = {a for p in whole for a in p["added"]}
+    return set(problem["missing"]) <= missing and set(problem["added"]) <= added
+
+
 def warning_lines(result: Dict) -> List[str]:
     """One line per warning: numbers on the whole text, then per paragraph."""
-    lines = []
-    for p in result["problemy"]:
-        details = "; ".join(part for part in ("brakuje: " + ", ".join(p["missing"]) if p["missing"] else "",
-                                              "dodane: " + ", ".join(p["added"]) if p["added"] else "") if part)
-        lines.append(p["message"] + (" (%s)" % details if details else ""))
+    def detail(p: Dict) -> str:
+        parts = [part for part in ("brakuje: " + ", ".join(p["missing"]) if p["missing"] else "",
+                                   "dodane: " + ", ".join(p["added"]) if p["added"] else "") if part]
+        return p["message"] + (" (%s)" % "; ".join(parts) if parts else "")
+
+    lines = [detail(p) for p in result["problemy"]]
     for a in result["akapity"]:
-        lines += ["Akapit %d: %s" % (a["numer"], p["message"]) for p in a["problemy"]]
+        lines += ["Akapit %d: %s" % (a["numer"], detail(p)) for p in a["problemy"]]
         if a["powod"]:
             lines.append("Akapit %d: %s" % (a["numer"], a["powod"]))
     return lines
@@ -54,10 +65,12 @@ def process_text(backend: Backend, model: str, text: str, rounds: int = 2, hidde
                 break
         after = current or block["tekst"]
         paragraphs.append({"numer": number, "przed": block["tekst"], "po": after, "przepisany": True,
-                           "problemy": [p for p in problems if p["kind"] != "values"], "powod": reason})
+                           "problemy": problems, "powod": reason})
         out.append(after + block["odstep"])
     result = "".join(out)
     values = [asdict(p) for p in check(cleaned.text, result) if p.kind == "values"]
+    for paragraph in paragraphs:
+        paragraph["problemy"] = [p for p in paragraph["problemy"] if not covered(p, values)]
     warnings = len(values) + sum(1 for p in paragraphs if p["problemy"] or p["powod"])
     return {"wynik": result, "akapity": paragraphs, "problemy": values, "czyszczenie": summary(cleaned.changes),
             "ostrzezenia": warnings}

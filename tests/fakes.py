@@ -9,8 +9,8 @@ from szlif_core.backends import Backend
 
 
 class FakeServer:
-    """routes: {(method, path): (status, body, delay_s[, headers])}. A dict body is sent
-    as JSON, bytes as they are. Unknown routes answer 404."""
+    """routes: {(method, path): (status, body, delay_s[, headers])} or a list of such answers,
+    one per request. A dict body is sent as JSON, bytes as they are. Unknown routes answer 404."""
 
     def __init__(self, routes):
         self.routes = routes
@@ -24,8 +24,10 @@ class FakeServer:
                 body = json.loads(raw) if raw else None
                 path = self.path.split("?", 1)[0]
                 fake.requests.append((self.command, path, dict(self.headers), body))
-                status, payload, delay, *extra = fake.routes.get(
-                    (self.command, path), (404, {"error": "not found"}, 0))
+                route = fake.routes.get((self.command, path), (404, {"error": "not found"}, 0))
+                if isinstance(route, list):  # one answer per request, the last one repeats
+                    route = route.pop(0) if len(route) > 1 else route[0]
+                status, payload, delay, *extra = route
                 if delay:
                     time.sleep(delay)
                 data = payload if isinstance(payload, bytes) else json.dumps(payload).encode()

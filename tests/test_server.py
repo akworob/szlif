@@ -152,6 +152,12 @@ class Weryfikacja(unittest.TestCase):
         self.assertIn("Akapit 2\nPRZED: Ala ma kota.\nPO: Kot jest Ali.", r["prompt"])
         self.assertIn("- Akapit 2: uwaga", r["prompt"])
 
+    def test_huge_number_rejected(self):  # review: int(1e999) raised OverflowError, the connection dropped
+        with Running(FakeBackend()) as s:
+            status, r, _ = s.call("POST", "/api/weryfikacja", b'{"pary": [{"numer": 1e999, "przed": "a", "po": "b"}]}',
+                                  {"Content-Type": "application/json"})
+        self.assertEqual(status, 400)
+
     def test_bad_pairs(self):
         with Running(FakeBackend()) as s:
             status, r, _ = s.call("POST", "/api/weryfikacja", {"pary": "x", "uwagi": []})

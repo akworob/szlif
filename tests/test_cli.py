@@ -73,6 +73,40 @@ class Przepisz(unittest.TestCase):
         with open(report, encoding="utf-8") as f:
             self.assertEqual(json.load(f)["weryfikacja"], {"model": "m", "odpowiedz": R1})
 
+    def test_unwritable_output_fails_before_the_model(self):
+        with FakeServer(ollama(R1)) as s:
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                code = szlif.main(["przepisz", self.source, "--serwer", s.url,
+                                   "--raport", self.path("nie-ma/raport.json")])
+            chats = [r for r in s.requests if r[1] == "/api/chat"]
+        self.assertEqual((code, chats), (1, []))
+        self.assertIn("Nie mogę zapisać", err.getvalue())
+
+    def test_failed_check_keeps_report(self):
+        routes = ollama(R1)
+        ok = routes[("POST", "/api/chat")]
+        routes[("POST", "/api/chat")] = [ok, ok, (500, {"error": "brak pamięci"}, 0)]
+        report = self.path("raport.json")
+        with FakeServer(routes) as s:
+            with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+                code = szlif.main(["przepisz", self.source, "--serwer", s.url, "--raport", report, "--sprawdz"])
+        self.assertEqual(code, 0)
+        with open(report, encoding="utf-8") as f:
+            check = json.load(f)["weryfikacja"]
+        self.assertIn("błędem 500", check["blad"])
+
+    def test_stdin_read_as_utf8(self):  # review: a Windows pipe is decoded with the code page otherwise
+        stdin = io.TextIOWrapper(io.BytesIO(("Tytuł\n\n" + P1 + "\n").encode("utf-8")), encoding="cp1250")
+        out = io.StringIO()
+        with FakeServer(ollama(R1)) as s, mock.patch("sys.stdin", stdin), \
+                contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(out):
+            code = szlif.main(["przepisz", "-", "--serwer", s.url])
+            prompt = [r for r in s.requests if r[1] == "/api/chat"][0][3]["messages"][-1]["content"]
+        self.assertEqual(code, 0)
+        self.assertIn(P1, prompt)
+        self.assertIn("Tytuł", out.getvalue())
+
     def test_missing_file(self):
         err = io.StringIO()
         with contextlib.redirect_stderr(err):

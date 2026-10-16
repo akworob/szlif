@@ -32,6 +32,18 @@ class Process(unittest.TestCase):
         with self.assertRaises(BackendError):
             process_text(FakeBackend([BackendError("x")]), "m", TEXT, rounds=1)
 
+    def test_value_moved_between_paragraphs_reported(self):  # review: the whole-text count hides it
+        p1 = "Zniżka dla studentów wynosi 30% na wszystkie bilety kupione w kasie przed seansem w kinie."
+        p2 = "Bilety dla seniorów można kupić w każdym kinie sieci przez cały tydzień bez żadnych ograniczeń."
+        r1 = "Studenci dostają zniżkę na wszystkie bilety kupione w kasie kina przed rozpoczęciem seansu."
+        r2 = "Seniorzy mogą kupić bilety z rabatem 30% w każdym kinie sieci przez cały tydzień bez ograniczeń."
+        backend = FakeBackend([Reply(r1, False), Reply(r2, False)])
+        r = process_text(backend, "m", p1 + "\n\n" + p2, rounds=1)
+        self.assertEqual(r["problemy"], [])  # the whole text still has one "30%"
+        self.assertEqual([p["kind"] for p in r["akapity"][0]["problemy"]], ["values"])
+        self.assertEqual([p["kind"] for p in r["akapity"][1]["problemy"]], ["values"])
+        self.assertEqual(r["ostrzezenia"], 2)
+
     def test_values_checked_on_whole_text(self):
         text = "Bilet na koncert w sobotę kosztuje 15 zł, a ulgowy bilet dla studentów kosztuje 10 zł."
         backend = FakeBackend([Reply("Bilet na sobotni koncert kosztuje 15 zł, a ulgowy dla studentów to 12 zł.", False)])
