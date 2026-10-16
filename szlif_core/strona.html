@@ -225,7 +225,7 @@ function renderColumn(target, segments) {
   }
 }
 
-function render(view, reason) {
+function render(view, notes) {
   renderColumn($("przed"), view.przed);
   renderColumn($("po"), view.po);
   finalText = view.po.map((s) => s.text).join("");
@@ -235,14 +235,22 @@ function render(view, reason) {
   facts.append(el("div", "", cleaned.length
     ? "Wyczyszczono: " + cleaned.map(([kind, n]) => (NAMES[kind] || kind) + " ×" + n).join(", ") + "."
     : "Nie znaleziono ukrytych znaków."));
-  for (const p of view.problemy) {
+  // Numbers are checked on the whole text (and marked in it); the rest per paragraph, in notes.
+  for (const p of view.problemy.filter((p) => p.kind === "values")) {
     const box = el("div", "problem");
     box.append(el("b", "", p.message));
     if (p.missing.length) box.append(el("div", "", "Brakuje w wyniku: " + p.missing.join(", ")));
     if (p.added.length) box.append(el("div", "", "Dodane w wyniku: " + p.added.join(", ")));
     facts.append(box);
   }
-  if (reason) facts.append(el("div", "stopped", reason));
+  for (const note of notes || []) {
+    if (note.info) { facts.append(el("div", "stopped", note.info)); continue; }
+    const box = el("div", "problem");
+    box.append(el("b", "", "Akapit " + note.number + " („" + note.start + "”)"));
+    for (const p of note.problems) box.append(el("div", "", p.message));
+    if (note.reason) box.append(el("div", "stopped", note.reason));
+    facts.append(box);
+  }
   $("kopiuj").textContent = "Kopiuj wynik";
   $("result").hidden = false;
 }
@@ -255,23 +263,54 @@ async function cleanOnly() {
   finally { controller = null; busy(null); }
 }
 
+function firstWords(text) {
+  return text.split(/\s+/).slice(0, 4).join(" ") + "…";
+}
+
+// One paragraph through the rounds; the stop rule is the server's (run_round).
+async function rewriteBlock(base, block, rounds, model, signal, progress) {
+  let current = null, cut = false, problems = [], reason = null;
+  for (let r = 1; r <= rounds; r++) {
+    progress(r);
+    const res = await api("/api/runda", Object.assign({}, base, {tekst: block.tekst, biezacy: current, runda: r, model}), signal);
+    if (res.przyjeta) {
+      current = res.tekst;
+      cut = res.problemy.some((p) => p.kind === "cut");
+      problems = res.problemy;
+    }
+    if (res.stop) {
+      if (!res.przyjeta) reason = res.powod;
+      break;
+    }
+  }
+  return {tekst: current === null ? block.tekst : current, cut, problems, reason};
+}
+
 async function processText() {
   const rounds = Number($("tryb").value), base = options(), model = $("model").value;
   controller = new AbortController();
   $("result").hidden = true;
-  let current = null, reason = null, cut = false;
+  const notes = [], out = [];
+  let cut = false;
   try {
-    for (let r = 1; r <= rounds; r++) {
-      busy("Runda " + r + " z " + rounds + "…");
-      const res = await api("/api/runda", Object.assign({}, base, {biezacy: current, runda: r, model}), controller.signal);
-      if (res.przyjeta) {
-        current = res.tekst;
-        cut = res.problemy.some((p) => p.kind === "cut");
-      }
-      if (res.stop) { reason = res.powod; break; }
+    busy("Dzielę tekst na akapity…");
+    const blocks = (await api("/api/bloki", base, controller.signal)).bloki;
+    const todo = blocks.filter((b) => b.przepisz).length;
+    let done = 0, number = 0;
+    for (const block of blocks) {
+      if (block.tekst) number++;
+      if (!block.przepisz) { out.push(block.tekst + block.odstep); continue; }
+      done++;
+      const res = await rewriteBlock(base, block, rounds, model, controller.signal,
+        (r) => busy("Akapit " + done + " z " + todo + " · runda " + r + " z " + rounds + "…"));
+      cut = cut || res.cut;
+      const shown = res.problems.filter((p) => p.kind !== "values");
+      if (shown.length || res.reason) notes.push({number, start: firstWords(block.tekst), problems: shown, reason: res.reason});
+      out.push(res.tekst + block.odstep);
     }
+    if (!todo) notes.push({info: "Nie ma tu akapitu do przepisania: nagłówki, listy i akapity krótsze niż 12 słów zostają bez zmian."});
     busy("Porównuję…");
-    render(await api("/api/widok", Object.assign({}, base, {wynik: current, uciete: cut}), controller.signal), reason);
+    render(await api("/api/widok", Object.assign({}, base, {wynik: out.join(""), uciete: cut}), controller.signal), notes);
   } catch (e) {
     showError(e.name === "AbortError" ? "Przerwano." : e.message);
   } finally {

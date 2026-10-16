@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 
 from . import COMMAND
 from .backends import Backend, BackendError
+from .blocks import split_blocks
 from .cleaner import clean, summary
 from .guard import check
 from .rewrite import MAX_CHARS, MODES, run_round
@@ -108,7 +109,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError
         except ValueError:
             return self._json(400, {"blad": "Nieprawidłowe zapytanie."})
-        routes = {"/api/runda": self._runda, "/api/widok": self._widok}
+        routes = {"/api/bloki": self._bloki, "/api/runda": self._runda, "/api/widok": self._widok}
         route = routes.get(self.path.split("?", 1)[0])
         if route is None:
             return self._json(404, {"blad": "Nie ma takiej strony."})
@@ -134,6 +135,12 @@ class Handler(BaseHTTPRequestHandler):
         return {"rodzaj": backend.kind, "serwer": backend.url, "lokalny": backend.is_local,
                 "chmura_wylaczona": cloud, "modele": models, "model": model, "limit": MAX_CHARS,
                 "tryby": MODES, "blad": error, "polecenie": COMMAND}
+
+    def _bloki(self, body: Dict) -> Dict:
+        """The cleaned text in blocks; the page rewrites the paragraphs one at a time."""
+        tekst = _text(body, "tekst")
+        cleaned = clean(tekst, bool(body.get("ukryte", True)), bool(body.get("myslniki", False))).text
+        return {"bloki": split_blocks(cleaned)}
 
     def _runda(self, body: Dict) -> Dict:
         tekst = _text(body, "tekst")

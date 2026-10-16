@@ -126,6 +126,23 @@ class Widok(unittest.TestCase):
         self.assertEqual([p["kind"] for p in v["problemy"]], ["cut"])
 
 
+class Bloki(unittest.TestCase):
+    PARAGRAPH = "Pierwszy akapit ma tutaj dość dużo słów, żeby model mógł go spokojnie przepisać bez kłopotu."
+
+    def test_bloki_cleaned_and_marked(self):
+        with Running(FakeBackend()) as s:
+            status, r, _ = s.call("POST", "/api/bloki", {"tekst": "Tytuł\r\n\r\n" + self.PARAGRAPH + "\u200b",
+                                                        "ukryte": True, "myslniki": False})
+        self.assertEqual(status, 200)
+        self.assertEqual([(b["tekst"], b["przepisz"]) for b in r["bloki"]],
+                         [("Tytuł", False), (self.PARAGRAPH, True)])
+
+    def test_bloki_rejects_empty(self):
+        with Running(FakeBackend()) as s:
+            status, r, _ = s.call("POST", "/api/bloki", {"tekst": " ", "ukryte": True, "myslniki": False})
+        self.assertEqual((status, r["blad"]), (400, "Wklej tekst."))
+
+
 class Runda(unittest.TestCase):
     def test_runda_ok(self):
         with Running(FakeBackend([Reply("Kot jest Ali.", False)])) as s:
