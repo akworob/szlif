@@ -129,7 +129,7 @@ class Handler(BaseHTTPRequestHandler):
         cloud = backend.cloud_disabled() if backend.kind == "ollama" and backend.is_local and not error else None
         return {"rodzaj": backend.kind, "serwer": backend.url, "lokalny": backend.is_local,
                 "chmura_wylaczona": cloud, "modele": models, "model": model, "limit": MAX_CHARS,
-                "tryby": MODES, "blad": error}
+                "tryby": MODES, "blad": error, "polecenie": COMMAND}
 
     def _runda(self, body: Dict) -> Dict:
         tekst = _text(body, "tekst")

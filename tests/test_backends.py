@@ -66,6 +66,13 @@ class Ollama(unittest.TestCase):
             with self.assertRaisesRegex(BackendError, "nie odpowiedział"):
                 make_backend(s.url, kind="ollama", timeout=0.5).chat("m", "s", "u")
 
+    def test_list_models_has_short_timeout(self):
+        with FakeServer({("GET", "/api/tags"): (200, {"models": []}, 2)}) as s:
+            backend = make_backend(s.url, kind="ollama", timeout=900)
+            backend.LIST_TIMEOUT = 0.5
+            with self.assertRaisesRegex(BackendError, "nie odpowiedział"):
+                backend.list_models()
+
     def test_redirect_not_followed(self):
         routes = {("GET", "/api/tags"): (302, b"", 0, {"Location": "http://127.0.0.1:9/x"})}
         with FakeServer(routes) as s:

@@ -1,1 +1,306 @@
-<!doctype html><meta charset="utf-8"><title>Szlif</title>
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Szlif</title>
+<style>
+  :root {
+    --bg: #eef1f4; --panel: #ffffff; --ink: #1d2330; --muted: #5b6475; --line: #d5dae2;
+    --accent: #1f5f7a; --accent-ink: #ffffff;
+    --del: #a3221b; --del-bg: #fbe4e1; --ins: #1b6136; --ins-bg: #dcf1e3;
+    --pill: #7a4300; --pill-bg: #ffe3b8; --warn: #d99a00; --warn-bg: #fff4d9;
+    --danger: #8f1d17; --danger-bg: #fde2df;
+    --serif: "Iowan Old Style", Charter, "Bitstream Charter", Cambria, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161a21; --panel: #1f242d; --ink: #e6e9ef; --muted: #a2aaba; --line: #343b47;
+      --accent: #6fb3cf; --accent-ink: #0d1a20;
+      --del: #ff9d94; --del-bg: #4a1f1c; --ins: #8fdba8; --ins-bg: #1d3a28;
+      --pill: #ffd49a; --pill-bg: #5a3a10; --warn: #e2b23c; --warn-bg: #3d3216;
+      --danger: #ffb4ad; --danger-bg: #4a1f1c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+  main { max-width: 1200px; margin: 0 auto; padding: 28px 24px 40px; }
+  header { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; }
+  h1 { font: 600 34px/1 var(--serif); margin: 0; letter-spacing: 0.01em; }
+  header p { margin: 0; color: var(--muted); }
+  .banner { border-radius: 6px; padding: 10px 14px; margin: 0 0 12px; }
+  .banner.remote { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
+  .banner.cloud { background: var(--warn-bg); color: var(--ink); border-left: 4px solid var(--warn); }
+  .banner.error { background: var(--panel); color: var(--muted); border: 1px solid var(--line); }
+  textarea {
+    width: 100%; min-height: 190px; resize: vertical; padding: 14px 16px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--panel); color: var(--ink); font: 17px/1.6 var(--serif);
+  }
+  .count { text-align: right; color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .count.over { color: var(--danger); font-weight: 600; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin: 10px 0 18px; }
+  .controls label { display: inline-flex; align-items: center; gap: 6px; }
+  .controls .push { margin-left: auto; display: flex; gap: 10px; }
+  select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+           border-radius: 6px; padding: 5px 8px; max-width: 340px; }
+  button { font: inherit; border-radius: 6px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--line);
+           background: var(--panel); color: var(--ink); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .progress { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; color: var(--muted); }
+  .error-box { background: var(--danger-bg); color: var(--danger); border-radius: 6px; padding: 10px 14px; margin: 0 0 18px; }
+  .summary { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 20px; margin-bottom: 12px; }
+  .summary .facts { flex: 1 1 auto; display: grid; gap: 6px; }
+  .problem { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 8px 12px; border-radius: 4px; }
+  .problem b { font-weight: 600; }
+  .stopped { color: var(--muted); }
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .column { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px 18px; min-width: 0; }
+  .column h2 { font: 600 15px/1.2 var(--sans); color: var(--muted); margin: 0 0 10px; }
+  .text { font: 17px/1.7 var(--serif); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .del { color: var(--del); background: var(--del-bg); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .ins { color: var(--ins); background: var(--ins-bg); }
+  .warn { text-decoration: underline wavy var(--warn); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  .pill { display: inline-block; font: 600 11px/1.5 var(--sans); color: var(--pill); background: var(--pill-bg);
+          border-radius: 4px; padding: 0 5px; margin: 0 2px; vertical-align: 2px; white-space: nowrap; }
+  footer { margin-top: 22px; color: var(--muted); font-size: 14px; }
+  footer a { color: var(--accent); }
+  [hidden] { display: none !important; }
+  @media (max-width: 800px) { .columns { grid-template-columns: 1fr; } .controls .push { margin-left: 0; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Szlif</h1>
+    <p id="lead">Przepisywanie Bielikiem i czyszczenie ukrytych znaków. Wszystko na tym komputerze.</p>
+  </header>
+
+  <div id="banners"></div>
+
+  <label for="tekst" hidden>Tekst</label>
+  <textarea id="tekst" placeholder="Wklej tutaj tekst po polsku." spellcheck="false"></textarea>
+  <div class="count" id="count"></div>
+
+  <div class="controls">
+    <label>Tryb
+      <select id="tryb">
+        <option value="1">prosty (1 runda)</option>
+        <option value="2" selected>standardowy (2 rundy)</option>
+        <option value="3">wzmocniony (3 rundy)</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="ukryte" checked> czyść ukryte znaki</label>
+    <label><input type="checkbox" id="myslniki"> myślniki → przecinki</label>
+    <label>Model <select id="model"></select></label>
+    <div class="push">
+      <button id="wyczysc">Tylko wyczyść znaki</button>
+      <button id="przetworz" class="primary">Przetwórz</button>
+    </div>
+  </div>
+
+  <div class="progress" id="progress" hidden>
+    <span id="progress-text"></span>
+    <button id="przerwij">Przerwij</button>
+  </div>
+  <div class="error-box" id="error" hidden></div>
+
+  <section id="result" hidden>
+    <div class="summary">
+      <div class="facts" id="facts"></div>
+      <button id="kopiuj">Kopiuj wynik</button>
+    </div>
+    <div class="columns">
+      <div class="column"><h2>Przed</h2><div class="text" id="przed"></div></div>
+      <div class="column"><h2>Po</h2><div class="text" id="po"></div></div>
+    </div>
+  </section>
+
+  <footer>
+    Przeczytaj każdą zmianę, zanim użyjesz tekstu.
+    <a href="https://github.com/akworob/szlif#jakość" target="_blank" rel="noopener noreferrer">Dlaczego?</a>
+  </footer>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const NAMES = {
+  ZWSP: "spacja o zerowej szerokości", ZWNJ: "rozdzielacz zerowej szerokości", ZWJ: "łącznik zerowej szerokości",
+  WJ: "łącznik słów", BOM: "znacznik kolejności bajtów", MVS: "separator samogłosek", SHY: "miękki dywiz",
+  BIDI: "znak sterujący kierunkiem tekstu", NBSP: "twarda spacja", NNBSP: "wąska twarda spacja",
+  SPACJA: "nietypowa spacja", LS: "separator wiersza", PS: "separator akapitu", homoglif: "litera z innego alfabetu",
+  "pełna-szerokość": "znak pełnej szerokości", ukryty: "ukryty tekst", "—": "myślnik", "–": "półpauza",
+};
+let limit = 12000, finalText = "", controller = null;
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+async function api(path, body, signal) {
+  const opts = body === undefined ? {} : {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body), signal,
+  };
+  const resp = await fetch(path, opts);
+  let data;
+  try { data = await resp.json(); } catch (e) { throw new Error("Serwer Szlifu odpowiedział nieoczekiwanie (" + resp.status + ")."); }
+  if (!resp.ok) throw new Error(data.blad || ("Błąd " + resp.status));
+  return data;
+}
+
+function grouped(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+
+function updateCount() {
+  const n = $("tekst").value.length;
+  $("count").textContent = grouped(n) + " / " + grouped(limit) + " znaków";
+  $("count").classList.toggle("over", n > limit);
+  const empty = !$("tekst").value.trim() || n > limit;
+  $("przetworz").disabled = empty || !$("model").value || controller !== null;
+  $("wyczysc").disabled = empty || controller !== null;
+}
+
+async function loadState() {
+  const banners = $("banners");
+  banners.replaceChildren();
+  let st;
+  try { st = await api("/api/stan"); } catch (e) { banners.append(el("div", "banner error", e.message)); return; }
+  limit = st.limit;
+  if (!st.lokalny) $("lead").textContent = "Przepisywanie Bielikiem i czyszczenie ukrytych znaków.";
+  if (!st.lokalny) banners.append(el("div", "banner remote", "Tekst jest wysyłany do: " + st.serwer + ", poza ten komputer."));
+  if (st.chmura_wylaczona === false) {
+    banners.append(el("div", "banner cloud", "Funkcje chmurowe Ollamy są włączone. Wyłącz je: " + st.polecenie + " instaluj"));
+  }
+  if (st.blad) banners.append(el("div", "banner error", st.blad));
+  const select = $("model");
+  select.replaceChildren();
+  const models = st.modele.slice();
+  if (st.model && !models.includes(st.model)) models.unshift(st.model);
+  for (const m of models) {
+    const option = el("option", "", m);
+    option.value = m;
+    option.selected = m === st.model;
+    select.append(option);
+  }
+  updateCount();
+}
+
+function options() {
+  return {tekst: $("tekst").value, ukryte: $("ukryte").checked, myslniki: $("myslniki").checked};
+}
+
+function busy(text) {
+  $("progress").hidden = !text;
+  $("progress-text").textContent = text || "";
+  $("error").hidden = true;
+  updateCount();
+}
+
+function showError(message) {
+  $("error").textContent = message;
+  $("error").hidden = false;
+}
+
+function renderColumn(target, segments) {
+  target.replaceChildren();
+  for (const s of segments) {
+    if (s.t === "pill") {
+      const pill = el("span", "pill", s.label);
+      pill.title = NAMES[s.label.split(" ")[0]] || s.label;
+      target.append(pill);
+      continue;
+    }
+    const cls = [s.t === "eq" ? "" : s.t, s.warn ? "warn" : ""].join(" ").trim();
+    target.append(cls ? el("span", cls, s.text) : document.createTextNode(s.text));
+  }
+}
+
+function render(view, reason) {
+  renderColumn($("przed"), view.przed);
+  renderColumn($("po"), view.po);
+  finalText = view.po.map((s) => s.text).join("");
+  const facts = $("facts");
+  facts.replaceChildren();
+  const cleaned = Object.entries(view.czyszczenie);
+  facts.append(el("div", "", cleaned.length
+    ? "Wyczyszczono: " + cleaned.map(([kind, n]) => (NAMES[kind] || kind) + " ×" + n).join(", ") + "."
+    : "Nie znaleziono ukrytych znaków."));
+  for (const p of view.problemy) {
+    const box = el("div", "problem");
+    box.append(el("b", "", p.message));
+    if (p.missing.length) box.append(el("div", "", "Brakuje w wyniku: " + p.missing.join(", ")));
+    if (p.added.length) box.append(el("div", "", "Dodane w wyniku: " + p.added.join(", ")));
+    facts.append(box);
+  }
+  if (reason) facts.append(el("div", "stopped", reason));
+  $("kopiuj").textContent = "Kopiuj wynik";
+  $("result").hidden = false;
+}
+
+async function cleanOnly() {
+  controller = new AbortController();
+  busy("Czyszczę…");
+  try { render(await api("/api/widok", Object.assign(options(), {wynik: null}), controller.signal), null); }
+  catch (e) { showError(e.message); }
+  finally { controller = null; busy(null); }
+}
+
+async function processText() {
+  const rounds = Number($("tryb").value), base = options(), model = $("model").value;
+  controller = new AbortController();
+  $("result").hidden = true;
+  let current = null, reason = null, cut = false;
+  try {
+    for (let r = 1; r <= rounds; r++) {
+      busy("Runda " + r + " z " + rounds + "…");
+      const res = await api("/api/runda", Object.assign({}, base, {biezacy: current, runda: r, model}), controller.signal);
+      if (res.przyjeta) {
+        current = res.tekst;
+        cut = res.problemy.some((p) => p.kind === "cut");
+      }
+      if (res.stop) { reason = res.powod; break; }
+    }
+    busy("Porównuję…");
+    render(await api("/api/widok", Object.assign({}, base, {wynik: current, uciete: cut}), controller.signal), reason);
+  } catch (e) {
+    showError(e.name === "AbortError" ? "Przerwano." : e.message);
+  } finally {
+    controller = null;
+    busy(null);
+  }
+}
+
+$("tekst").addEventListener("input", updateCount);
+$("model").addEventListener("change", updateCount);
+$("przetworz").addEventListener("click", processText);
+$("wyczysc").addEventListener("click", cleanOnly);
+$("przerwij").addEventListener("click", () => controller && controller.abort());
+function copyFallback(text) {
+  const area = el("textarea");
+  area.value = text;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.append(area);
+  area.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  area.remove();
+  return ok;
+}
+
+$("kopiuj").addEventListener("click", async () => {
+  let ok = false;
+  try { await navigator.clipboard.writeText(finalText); ok = true; } catch (e) { ok = copyFallback(finalText); }
+  if (ok) $("kopiuj").textContent = "Skopiowano";
+  else showError("Nie udało się skopiować. Zaznacz tekst w kolumnie Po i skopiuj ręcznie.");
+});
+updateCount();
+loadState();
+</script>
+</body>
+</html>

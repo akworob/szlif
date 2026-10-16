@@ -39,6 +39,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 class Backend:
     kind = ""
+    LIST_TIMEOUT = 10.0  # the page waits on the model list, so it must not wait for the long chat timeout
 
     def __init__(self, url: str, timeout: float = 900.0, api_key: Optional[str] = None):
         self.url = url.rstrip("/")
@@ -108,7 +109,7 @@ class OllamaBackend(Backend):
     kind = "ollama"
 
     def list_models(self) -> List[str]:
-        reply = self._request("/api/tags")
+        reply = self._request("/api/tags", timeout=self.LIST_TIMEOUT)
         try:
             return [m["name"] for m in reply["models"]]
         except (TypeError, KeyError):
@@ -154,7 +155,7 @@ class OpenAIBackend(Backend):
         return headers
 
     def list_models(self) -> List[str]:
-        reply = self._request("/models")
+        reply = self._request("/models", timeout=self.LIST_TIMEOUT)
         try:
             return [m["id"] for m in reply["data"]]
         except (TypeError, KeyError):
