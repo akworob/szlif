@@ -158,7 +158,7 @@ const NAMES = {
   SPACJA: "nietypowa spacja", LS: "separator wiersza", PS: "separator akapitu", homoglif: "litera z innego alfabetu",
   "pełna-szerokość": "znak pełnej szerokości", ukryty: "ukryty tekst", "—": "myślnik", "–": "półpauza",
 };
-let limit = 12000, finalText = "", controller = null, toVerify = null, rewrittenWith = null;
+let limit = 12000, cleanLimit = 12000, finalText = "", controller = null, toVerify = null, rewrittenWith = null;
 let cloudModels = [], stateError = false;
 
 function el(tag, cls, text) {
@@ -194,9 +194,9 @@ function updateCount() {
   const n = $("tekst").value.length;
   $("count").textContent = grouped(n) + " / " + grouped(limit) + " znaków";
   $("count").classList.toggle("over", n > limit);
-  const empty = !$("tekst").value.trim() || n > limit;
-  $("przetworz").disabled = empty || !$("model").value || controller !== null;
-  $("wyczysc").disabled = empty || controller !== null;
+  const blank = !$("tekst").value.trim();
+  $("przetworz").disabled = blank || n > limit || !$("model").value || controller !== null;
+  $("wyczysc").disabled = blank || n > cleanLimit || controller !== null;
   $("sprawdz").textContent = /bielik/i.test($("model").value) ? "Sprawdź Bielikiem" : "Sprawdź modelem";
   $("sprawdz").disabled = !$("model").value || controller !== null;
 }
@@ -207,6 +207,7 @@ async function loadState() {
   let st;
   try { st = await api("/api/stan"); } catch (e) { banners.append(el("div", "banner error", e.message)); return; }
   limit = st.limit;
+  cleanLimit = st.limit_czyszczenia || limit;
   if (!st.lokalny) $("lead").textContent = "Przepisywanie Bielikiem i czyszczenie ukrytych znaków.";
   if (!st.lokalny) banners.append(el("div", "banner remote", "Tekst jest wysyłany do: " + st.serwer + ", poza ten komputer."));
   if (st.chmura_wylaczona === false) {
@@ -358,9 +359,10 @@ async function rewriteBlock(base, block, rounds, model, signal, progress) {
       res = await api("/api/runda", Object.assign({}, base, {tekst: block.tekst, biezacy: current, runda: r, model}), signal);
     } catch (e) {
       // No server (503), a lost connection or Przerwij stop the whole run; any other error costs
-      // only this paragraph, which stays as it was.
+      // only this paragraph, which keeps its last accepted round (or the original).
       if (e.name === "AbortError" || !e.status || e.status === 503) throw e;
-      reason = "Akapit nie został przepisany: " + e.message;
+      reason = current === null ? "Akapit nie został przepisany: " + e.message
+        : "Runda " + r + " nie powiodła się (" + e.message + "), więc zostaje wynik rundy " + (r - 1) + ".";
       break;
     }
     if (res.przyjeta) {

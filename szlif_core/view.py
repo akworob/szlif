@@ -38,7 +38,10 @@ def build_view(before: str, pills: List[Change], after: str, missing_spans: List
     starts_a = [0]
     for token in a:
         starts_a.append(starts_a[-1] + len(token))
-    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+    # Cleaning alone gives the same text twice; difflib would take a minute on 200 000 characters.
+    opcodes = ([("equal", 0, len(a), 0, len(b))] if before == after
+               else difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes())
+    for op, i1, i2, j1, j2 in opcodes:
         if op == "replace" and all(t.isspace() for t in a[i1:i2] + b[j1:j2]):
             op = "equal"  # a double space or a moved line break is not a change worth red and green
         if op in ("delete", "replace"):

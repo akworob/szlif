@@ -32,6 +32,13 @@ class View(unittest.TestCase):
         v = build_view("Ala  ma kota.", [], "Ala ma kota.", [])
         self.assertEqual([s["t"] for s in v["przed"] + v["po"]], ["eq", "eq"])
 
+    def test_same_text_skips_the_diff(self):  # review: difflib took 81 s on 200 000 characters
+        from unittest import mock
+        with mock.patch("difflib.SequenceMatcher", side_effect=AssertionError("no diff needed")):
+            v = build_view("Ala  ma kota.", [Change(3, 1, " ", " ", "NBSP")], "Ala  ma kota.", [])
+        self.assertEqual(v["po"], [{"t": "eq", "text": "Ala  ma kota."}])
+        self.assertEqual([s["t"] for s in v["przed"]], ["eq", "pill", "eq"])
+
     def test_lost_flag(self):
         v = build_view("Ala ma kota", [], "Ala ma", [], lost_spans=[(7, 11)])
         self.assertIn({"t": "del", "text": "kota", "lost": True}, v["przed"])

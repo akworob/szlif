@@ -56,6 +56,31 @@ class Aktualizacje(unittest.TestCase):
         self.assertEqual(len(questions), 1)
         self.assertIs(config.load()["aktualizacje"], True)
 
+    def test_no_terminal_with_consent_shows_the_banner(self):  # review: ask(None) crashed the start
+        config.save({"aktualizacje": True})
+        release = {"wersja": "99.0.0", "adres": "https://github.com/akworob/szlif/releases", "zip": "z", "opis": ""}
+        with mock.patch("szlif_core.update.latest_release", return_value=release), \
+                mock.patch("szlif_core.update.run_update") as run_update:
+            info = szlif.startup_update_check(None, io.StringIO())
+        self.assertEqual(info["wersja"], "99.0.0")
+        run_update.assert_not_called()
+
+    def test_failed_check_does_not_stop_the_start(self):  # review: an unsaved config crashed the start
+        config.save({"aktualizacje": True})
+        out = io.StringIO()
+        with mock.patch("szlif_core.update.latest_release", return_value=None), \
+                mock.patch("szlif_core.config.save", side_effect=OSError("tylko do odczytu")):
+            self.assertIsNone(szlif.startup_update_check(lambda q: True, out))
+        self.assertIn("tylko do odczytu", out.getvalue())
+
+    def test_ctrl_c_at_the_update_question_ends_cleanly(self):
+        out = io.StringIO()
+        with mock.patch.object(szlif, "startup_update_check", side_effect=KeyboardInterrupt), \
+                mock.patch.object(szlif, "make_server") as make_server, contextlib.redirect_stdout(out):
+            self.assertEqual(szlif.main([]), 1)
+        make_server.assert_not_called()
+        self.assertIn("Przerwano", out.getvalue())
+
     def test_no_question_and_no_check_without_a_terminal(self):
         with mock.patch("szlif_core.update.latest_release") as latest:
             self.assertIsNone(szlif.startup_update_check(None, io.StringIO()))

@@ -159,6 +159,16 @@ class Installer(unittest.TestCase):
         self.assertIn("ponawiam", out.getvalue())
         self.assertIn("Pobrano", out.getvalue())
 
+    def test_pull_network_error_from_ollama_is_retried(self):  # review: Ollama reports these as events
+        broken = b'{"status": "pulling", "total": 100, "completed": 50}\n{"error": "max retries exceeded: EOF"}\n'
+        done = b'{"status": "pulling", "total": 100, "completed": 100}\n{"status": "success"}\n'
+        routes = {("POST", "/api/pull"): [(200, broken, 0), (200, done, 0)]}
+        out = io.StringIO()
+        with FakeServer(routes) as s, mock.patch.object(install, "RETRY_WAIT", 0):
+            install.pull_with_retry(s.url, Q6, out)
+            self.assertEqual(len([r for r in s.requests if r[1] == "/api/pull"]), 2)
+        self.assertIn("Pobrano", out.getvalue())
+
     def test_pull_refused_is_not_retried(self):
         routes = {("POST", "/api/pull"): (200, b'{"error": "pull model manifest: file does not exist"}\n', 0)}
         with FakeServer(routes) as s, mock.patch.object(install, "RETRY_WAIT", 0):

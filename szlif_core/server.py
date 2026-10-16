@@ -120,6 +120,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(415, {"blad": "Oczekiwano JSON."})
         try:
             length = int(self.headers.get("Content-Length") or 0)
+            if length < 0:  # rfile.read(-1) would wait for the end of the connection
+                raise ValueError
         except ValueError:
             return self._json(400, {"blad": "Nieprawidłowe zapytanie."})
         if length > MAX_BODY:
@@ -161,6 +163,7 @@ class Handler(BaseHTTPRequestHandler):
         cloud = backend.cloud_disabled() if backend.kind == "ollama" and backend.is_local and models else None
         return {"rodzaj": backend.kind, "serwer": backend.url, "lokalny": backend.is_local,
                 "chmura_wylaczona": cloud, "modele": models, "model": model, "limit": MAX_CHARS,
+                "limit_czyszczenia": CLEAN_ONLY_LIMIT,
                 "tryby": MODES, "blad": error, "polecenie": COMMAND,
                 "czytelnosci": [[k, label] for k, (label, _) in READABILITY.items()],
                 "cele": [[k, label] for k, (label, _) in PURPOSE.items()],

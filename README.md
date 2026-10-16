@@ -96,7 +96,8 @@ Strona wygląda na Windows tak samo jak na zrzutach powyżej. **Uczciwie:** na W
 - **Twoja wersja:** `python3 szlif.py --wersja` (Windows: `py szlif.py --wersja`). Widać ją też w stopce strony.
 - **Aktualizacja:** `python3 szlif.py aktualizuj` (Windows: `py szlif.py aktualizuj`). Szlif pyta GitHuba o najnowsze wydanie, a potem:
   - w kopii z `git clone` robi `git pull --ff-only`. Gdy masz zmiany w plikach Szlifu, odmawia i prosi o `git stash`, żeby niczego nie nadpisać;
-  - w kopii z ZIP pobiera paczkę wydania z GitHuba i zapisuje jej pliki na stare. Twoje zmiany w plikach Szlifu przepadną, a pliki spoza paczki zostają.
+  - w kopii z `git clone` bez polecenia `git` (np. z GitHub Desktop) niczego nie nadpisuje i prosi o pobranie zmian tam, skąd klonowałeś;
+  - w kopii z ZIP pobiera paczkę wydania z GitHuba i zapisuje jej pliki na stare. Najpierw zapisuje wszystkie nowe pliki obok starych, a podmienia je dopiero, gdy to się uda. Twoje zmiany w plikach Szlifu przepadną, a pliki spoza paczki zostają.
 
   Potem uruchom Szlif ponownie.
 - **Sprawdzanie przy starcie.** Instalator pyta raz, czy sprawdzać nowe wersje. Kto zainstalował Szlif przed wersją 0.2.0, dostanie to pytanie przy pierwszym starcie w terminalu. Po zgodzie Szlif przy starcie, najwyżej raz na dobę, wysyła jedno zapytanie do GitHuba, bez tekstów. Gdy jest nowsza wersja, pyta w terminalu „Zaktualizować teraz?”, a strona pokazuje pasek z linkiem do opisu zmian.

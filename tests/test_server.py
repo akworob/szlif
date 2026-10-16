@@ -157,6 +157,17 @@ class Widok(unittest.TestCase):
     def test_clean_only_has_a_larger_limit(self):
         with Running(FakeBackend()) as s:
             self.assertEqual(s.call("POST", "/api/widok", widok(tekst="a" * 13000))[0], 200)
+            self.assertEqual(s.call("GET", "/api/stan")[1]["limit_czyszczenia"], 200000)
+
+    def test_negative_content_length_refused(self):  # review: rfile.read(-1) waited for the end of input
+        import socket
+        with Running(FakeBackend()) as s:
+            sock = socket.create_connection(("127.0.0.1", s.port), timeout=5)
+            sock.sendall(("POST /api/widok HTTP/1.1\r\nHost: 127.0.0.1:%d\r\nContent-Type: application/json\r\n"
+                          "Content-Length: -1\r\n\r\n" % s.port).encode())
+            answer = sock.recv(100)
+            sock.close()
+        self.assertIn(b" 400 ", answer)
 
     def test_widok_cut_flag(self):
         with Running(FakeBackend()) as s:

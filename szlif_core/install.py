@@ -132,6 +132,11 @@ class PullRefused(BackendError):
     """Ollama itself refused the pull (no such model, no disk space): trying again will not help."""
 
 
+# Ollama reports a broken network ("max retries exceeded: EOF") the same way as these, as an
+# error event in the stream; only these are final.
+PERMANENT = ("does not exist", "not found", "no space", "invalid", "unauthorized")
+
+
 RETRY_ATTEMPTS, RETRY_WAIT = 5, 10  # seconds between attempts; Ollama resumes a partial download
 
 
@@ -164,7 +169,9 @@ def pull(base_url: str, model: str, out: TextIO) -> None:
                     continue
                 event = json.loads(raw)
                 if event.get("error"):
-                    raise PullRefused("Ollama nie pobrała modelu: %s" % event["error"])
+                    error = str(event["error"])
+                    final = any(word in error.lower() for word in PERMANENT)
+                    raise (PullRefused if final else BackendError)("Ollama nie pobrała modelu: %s" % error)
                 total, done = event.get("total"), event.get("completed")
                 if total and done is not None:
                     print("\r%s %d%%   " % (event.get("status", ""), done * 100 // total), end="", file=out, flush=True)

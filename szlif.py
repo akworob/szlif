@@ -174,19 +174,23 @@ def startup_update_check(ask, out) -> Optional[Dict]:
     update now (t/n). Who never answered (installed before updates existed) is asked once, but only
     in a terminal; ask is None without one. Returns {"wersja", "adres"} for the page, or
     {"zaktualizowano": True} when Szlif was just updated and must be started again."""
-    settings = config.load()
-    if "aktualizacje" not in settings and ask is not None:
-        settings["aktualizacje"] = ask(update.CONSENT_QUESTION)
-        config.save(settings)
-    if not update.check_due(settings, time.time()):
+    try:
+        settings = config.load()
+        if "aktualizacje" not in settings and ask is not None:
+            settings["aktualizacje"] = ask(update.CONSENT_QUESTION)
+            config.save(settings)
+        if not update.check_due(settings, time.time()):
+            return None
+        release = update.latest_release()
+        config.save(update.stamp(settings))
+    except OSError as e:  # e.g. a read-only home folder: the check is not worth a Szlif that does not start
+        print("Nie udało się sprawdzić nowej wersji: %s" % e, file=out, flush=True)
         return None
-    release = update.latest_release()
-    config.save(update.stamp(settings))
     if not release or not update.newer(release["wersja"], __version__):
         return None
     print("Jest nowa wersja Szlifu: %s (masz %s). %s" % (release["wersja"], __version__, release["adres"]),
           file=out, flush=True)
-    if ask("Zaktualizować teraz?") and update.run_update(out, release=release) == 0:
+    if ask is not None and ask("Zaktualizować teraz?") and update.run_update(out, release=release) == 0:
         return {"zaktualizowano": True}
     return {"wersja": release["wersja"], "adres": release["adres"]}
 
@@ -205,7 +209,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         except KeyboardInterrupt:
             print("\nPrzerwano.")
             return 1
-    found = startup_update_check(install.ask_yes if sys.stdin.isatty() else None, sys.stdout)
+    terminal = sys.stdin is not None and sys.stdin.isatty()  # sys.stdin is None under pythonw
+    try:
+        found = startup_update_check(install.ask_yes if terminal else None, sys.stdout)
+    except KeyboardInterrupt:
+        print("\nPrzerwano.")
+        return 1
     if found and found.get("zaktualizowano"):
         return 0
     backend = make_backend(args.serwer, args.rodzaj, api_key=os.environ.get("SZLIF_API_KEY"))
