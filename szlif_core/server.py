@@ -87,6 +87,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, PAGE.read_bytes(), PAGE_HEADERS)
         if path == "/api/stan":
             return self._json(200, self._stan())
+        if path == "/favicon.ico":  # no icon; answering keeps the browser console clean
+            return self._send(204, b"", {})
         self._json(404, {"blad": "Nie ma takiej strony."})
 
     def do_POST(self) -> None:

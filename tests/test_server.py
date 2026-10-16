@@ -66,6 +66,10 @@ class Security(unittest.TestCase):
         self.assertIn("Szlif", body)
         self.assertIn("default-src 'self'", resp.getheader("Content-Security-Policy"))
 
+    def test_favicon_no_content(self):
+        with Running(FakeBackend()) as s:
+            self.assertEqual(s.call("GET", "/favicon.ico")[0], 204)
+
     def test_bad_host_rejected(self):
         with Running(FakeBackend()) as s:
             self.assertEqual(s.call("GET", "/", host="evil.example:80")[0], 403)

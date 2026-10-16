@@ -1,0 +1,45 @@
+Szlif
+Copyright (c) 2026 akworob. Licensed under the MIT License (see LICENSE).
+
+This project builds on the work of others:
+
+1. lynote-ai/humanize-text
+   https://github.com/lynote-ai/humanize-text
+   Read at commit 768d3048632b44c7c18c0ec64427ca04bc2f9c84.
+   Szlif adapts the idea of the three rewriting rounds of its "Method 2"
+   (vary the sentence length, replace stiff wording, smooth the transitions).
+   The Polish prompts in szlif_core/rewrite.py were written for Szlif; no code
+   from that repository is included. Its licence:
+
+   MIT License
+
+   Copyright (c) 2026 Lynote.ai
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+2. Bielik language models by SpeakLeash
+   https://huggingface.co/speakleash
+   Licensed under the Apache License 2.0. The models are not part of this
+   repository and are not redistributed: each user downloads them through
+   Ollama. Szlif is not affiliated with or endorsed by SpeakLeash.
+
+3. Ollama
+   https://ollama.com
+   Licensed under the MIT License. An external program that Szlif talks to
+   over its local HTTP API; it is not part of this repository.
