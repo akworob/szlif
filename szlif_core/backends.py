@@ -13,6 +13,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
+from . import COMMAND
+
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
@@ -90,10 +92,10 @@ class Backend:
             if isinstance(e.reason, (socket.timeout, TimeoutError)):
                 raise Unreachable("Serwer modelu nie odpowiedział w %g s. Spróbuj krótszego tekstu." % timeout)
             raise Unreachable("Nie mogę połączyć się z serwerem modelu (%s). Czy Ollama działa? "
-                              "Uruchom: python3 szlif.py instaluj" % self.url)
+                              "Uruchom: %s instaluj" % (self.url, COMMAND))
         except (OSError, http.client.HTTPException):
             raise Unreachable("Nie mogę połączyć się z serwerem modelu (%s). Czy Ollama działa? "
-                              "Uruchom: python3 szlif.py instaluj" % self.url)
+                              "Uruchom: %s instaluj" % (self.url, COMMAND))
         except ValueError:
             raise BackendError("Serwer modelu zwrócił odpowiedź w nieznanym formacie.")
 
