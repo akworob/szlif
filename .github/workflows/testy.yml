@@ -1,0 +1,28 @@
+name: testy
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  testy:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The 3.9 floor on macOS is the system Python; it is checked locally (/usr/bin/python3).
+          - {os: macos-latest, python: "3.13"}
+          - {os: windows-latest, python: "3.9"}
+          - {os: windows-latest, python: "3.13"}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Testy jednostkowe
+        run: python -m unittest discover -s tests -v
+      - name: Próbny start strony
+        run: python tests/smoke.py
