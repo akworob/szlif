@@ -286,6 +286,7 @@ Test na publicznym artykule medycznym (ok. 1000 słów, bez liczb) pokazał trzy
   - przycisk „Kopiuj do weryfikacji” kopiuje prompt z parami akapitów PRZED i PO oraz uwagami strażnika;
   - `szlif.py przepisz` z raportem JSON, plikiem promptu i `--sprawdz`; to ostatnie zleca lokalnemu modelowi porównanie, po kilka akapitów naraz;
   - README ma gotowe polecenie dla agentów.
+  - przycisk „Sprawdź Bielikiem” na stronie (decyzja użytkownika, v2): wybrany model porównuje pary, po jednej części na zapytanie (`POST /api/sprawdz`), więc strona pokazuje postęp, a Przerwij działa między częściami; odpowiedź modelu trafia na stronę tylko jako tekst.
   - Prompt jest prosty, „Akapit N: BEZ ZMIAN” albo lista DODAJE / POMIJA / ZMIENIA. Pomiar: Bielik 11B przy tabeli z sześcioma kategoriami przeoczył dopisane zdanie, a przy tym formacie je znalazł.
 - **Polecenie dla modelu zabrania dopisywania i odpowiadania na pytania z tekstu.** Pomiar po 2 przebiegi na tym samym artykule: 1 i 5 zgłoszonych akapitów wobec 5 i 5 wcześniej, czyli średnio lepiej, ale niepewnie.
 - **Po recenzji kodu:**

@@ -16,7 +16,7 @@ Szlif przepisuje polski tekst modelem Bielik i czyści go z ukrytych znaków. Mo
 
 - Nie obiecuje, że tekst „przejdzie” przez detektory AI.
 - Nie usuwa statystycznych znaków wodnych (szczegóły niżej, w części o AI Act).
-- Nie sprawdza sensu. Nazwy, twierdzenia i ton musisz przeczytać sam (zobacz [Jakość](#jakość)).
+- Nie gwarantuje sensu. Strażnik sensu nie rozumie, a model, który go sprawdza („Sprawdź Bielikiem”), też się myli. Nazwy, twierdzenia i ton musisz przeczytać sam (zobacz [Jakość](#jakość)).
 - Nie wysyła tekstu poza komputer, chyba że sam wskażesz zewnętrzny serwer. Wtedy strona pokazuje czerwony pasek.
 
 ## Szybki start: macOS
@@ -99,7 +99,18 @@ Strona wygląda na Windows tak samo jak na zrzutach powyżej. **Uczciwie:** na W
 
 ## Weryfikacja i automatyzacja
 
-Strażnik sprawdza liczby i długość zawsze tak samo, ale sensu nie rozumie. Dlatego Szlif przygotowuje prompt dla drugiego modelu. Ten model porównuje każdy przepisany akapit z oryginałem i odpowiada w jednym formacie: „Akapit N: BEZ ZMIAN” albo lista: co akapit po przepisaniu **DODAJE**, co **POMIJA** i co **ZMIENIA** (liczby, nazwy, pewność, zakres).
+Strażnik sprawdza liczby i długość zawsze tak samo, ale sensu nie rozumie. Dlatego Szlif może zlecić modelowi porównanie: od razu na stronie albo przez prompt, który wkleisz do drugiego modelu. Model porównuje każdy przepisany akapit z oryginałem i odpowiada w jednym formacie: „Akapit N: BEZ ZMIAN” albo lista: co akapit po przepisaniu **DODAJE**, co **POMIJA** i co **ZMIENIA** (liczby, nazwy, pewność, zakres).
+
+### Na stronie: „Sprawdź Bielikiem”
+
+Po przetworzeniu kliknij **Sprawdź Bielikiem**. Model wybrany na liście **Model** (domyślnie Bielik w Ollamie) porównuje każdy zmieniony akapit z oryginałem. Jego odpowiedź pojawia się pod podsumowaniem, nad kolumnami Przed i Po.
+
+- **Tekst nie wychodzi z komputera**, jeśli model działa lokalnie. Przy zewnętrznym serwerze trafia tam, gdzie przepisywanie.
+- **Długi tekst idzie w częściach**, po kilka akapitów, żeby model nie uciął promptu. Strona pokazuje postęp („Sprawdzam część 2 z 3…”), a odpowiedzi z gotowych części widać od razu.
+- **Przerwij** kończy czekanie. Odpowiedzi z gotowych części zostają na stronie. Bieżącą część model dokończy w tle, a jej odpowiedź przepada.
+- **Przycisk pojawia się tylko wtedy, gdy któryś akapit się zmienił.** Przy modelu innym niż Bielik nazywa się „Sprawdź modelem”.
+- **Lepiej sprawdza inny model** niż ten, który przepisywał. Wybierz go na liście **Model** przed kliknięciem. Jeśli masz tylko Bielika, drugą parą oczu może być model w chmurze przez „Kopiuj do weryfikacji”.
+- Odpowiedź to lista miejsc do przeczytania, a nie werdykt. Gdy model urwie odpowiedź na limicie długości, strona to napisze.
 
 ### Na stronie: „Kopiuj do weryfikacji”
 
@@ -107,8 +118,8 @@ Po przetworzeniu kliknij **Kopiuj do weryfikacji**. W schowku jest prompt z ponu
 
 - **Lokalnie, do Bielika.** Tekst nie wychodzi z komputera:
   - macOS: `ollama run hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q6_K "$(pbpaste)"`
-  - Windows (PowerShell, niesprawdzone; PowerShell 5.1 potrafi zepsuć cudzysłowy w tekście, więc pewniej użyć `szlif.py przepisz --sprawdz`): `ollama run hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q6_K (Get-Clipboard -Raw)`
-- **Długie teksty:** `ollama run` ma zwykle mały kontekst i może uciąć długi prompt, zaczynając od instrukcji. Przy więcej niż kilku akapitach użyj `szlif.py przepisz --sprawdz` albo modelu z dużym kontekstem.
+  - Windows (PowerShell, niesprawdzone; PowerShell 5.1 potrafi zepsuć cudzysłowy w tekście, więc pewniej kliknąć **Sprawdź Bielikiem**): `ollama run hf.co/speakleash/Bielik-11B-v3.0-Instruct-GGUF:Q6_K (Get-Clipboard -Raw)`
+- **Długie teksty:** `ollama run` ma zwykle mały kontekst i może uciąć długi prompt, zaczynając od instrukcji. Przy więcej niż kilku akapitach kliknij **Sprawdź Bielikiem**, użyj `szlif.py przepisz --sprawdz` albo modelu z dużym kontekstem.
 - **Do Claude, ChatGPT, Gemini albo Groka.** Wtedy tekst trafia do chmury, więc nie rób tego z tekstami poufnymi.
 
 **Uczciwie:** weryfikator też się myli. W naszym teście Bielik wyłapał dopisaną radę, zmianę „może” → „zawsze” i pominięcie, ale wypisywał też zmiany samego stylu. W innej wersji promptu (z tabelą) przeoczył dopisane zdanie. Lepszą drugą parą oczu jest model inny niż ten, który przepisywał. Ostatnie słowo i tak należy do człowieka.
@@ -125,7 +136,7 @@ python3 szlif.py przepisz tekst.txt --wynik wynik.txt --raport raport.json --wer
   - `akapity`, a w każdym: `numer`, `przed`, `po`, `problemy` i `powod`;
   - `problemy`, czyli liczby sprawdzone na całym tekście;
   - `czyszczenie` i `ostrzezenia`;
-  - `weryfikacja`, gdy użyto `--sprawdz`.
+  - `weryfikacja`, gdy użyto `--sprawdz`: `model`, `odpowiedz`, `uciete` (czy model urwał odpowiedź) i `blad`, gdy sprawdzanie się nie udało.
 - **`--weryfikacja PLIK`**: prompt dla drugiego modelu.
 - **`--sprawdz`**: model od razu sprawdza sens, lokalnie. Inny model z Ollamy wskażesz przez `--model-weryfikatora NAZWA`.
 - **`--serwer`, `--model`**: jak przy stronie.
