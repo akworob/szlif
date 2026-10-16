@@ -84,11 +84,27 @@ class Check(unittest.TestCase):
         self.assertIn("paragraphs", [p.kind for p in problems])
         self.assertIn("2 \u2192 1", [p.message for p in problems if p.kind == "paragraphs"][0])
 
+    def test_line_break_counts_as_paragraph(self):  # a paragraph is one line in a Word paste
+        kinds = [p.kind for p in check("Ala ma kota, a kot ma Alę i psa.", "Ala ma kota.\nKot ma Alę i psa.")]
+        self.assertIn("paragraphs", kinds)
+
+    def test_soft_wrap_not_a_paragraph(self):
+        self.assertEqual(check("Ala ma kota, a kot\nma Alę i psa.", "Ala ma kota, a kot ma Alę i psa."), [])
+
     def test_meta_comment(self):  # measured: an instruction leaked into the text
         original = "Jeśli dolegliwości wyraźnie się zmniejszają, może to pomóc w planowaniu dalszego leczenia."
         output = original + " Krótkie zdania przeplatają się z dłuższymi, co nadaje tekstowi naturalny rytm."
         kinds = [p.kind for p in check(original, output)]
         self.assertIn("meta", kinds)
+
+    def test_meta_single_ordinary_word_not_flagged(self):  # review: everyday words share the stems
+        for before, after in [("Uważam, że to dobry pomysł na wyjazd.", "Moim zdaniem to dobry pomysł na wyjazd."),
+                              ("Postępujemy zgodnie z regulacjami.", "Postępujemy zgodnie z przepisami."),
+                              ("Lekarz poda lek na receptę.", "Lekarz przepisze lek na receptę."),
+                              ("Utrzymaj stałe tempo marszu.", "Utrzymaj stały rytm marszu."),
+                              ("Sklep sprzedaje tkaniny.", "Sklep sprzedaje tekstylia.")]:
+            with self.subTest(after=after):
+                self.assertNotIn("meta", [p.kind for p in check(before, after)])
 
     def test_meta_words_already_in_original(self):
         text = "Ten tekst ma dobry rytm, a zdania są krótkie."

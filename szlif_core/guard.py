@@ -10,6 +10,8 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import List, Tuple
 
+from .blocks import split_blocks
+
 
 @dataclass
 class Value:
@@ -132,16 +134,18 @@ def check(original: str, output: str, cut: bool = False) -> List[Problem]:
 
 
 def _paragraphs(text: str) -> int:
-    return len([p for p in re.split(r"\n\s*\n", text) if p.strip()])
+    """Paragraphs as Szlif splits them: a line break ends one unless it breaks a sentence."""
+    return sum(1 for b in split_blocks(text) if b["tekst"])
 
 
 def _meta_word(original: str, output: str) -> str:
-    """The first word of output that talks about writing (rytm, zdania, tekst, ...) where the
-    original never does: a comment or a piece of the instruction, not a rewrite."""
+    """The start of a sentence of output that talks about writing (rytm, zdania, tekst, ...) with
+    two or more such words the original never uses: a comment or a piece of the instruction,
+    not a rewrite. One such word alone is ordinary Polish ("moim zdaniem", "przepisy")."""
     def stems(text: str) -> set:
         return {s for w in re.findall(r"\w+", text.lower()) for s in META_STEMS if w.startswith(s)}
-    new = stems(output) - stems(original)
-    for word in re.findall(r"\w+", output):
-        if any(word.lower().startswith(s) for s in new):
-            return word
+    old = stems(original)
+    for sentence in re.split(r"(?<=[.!?…])\s+", output):
+        if len(stems(sentence) - old) >= 2:
+            return " ".join(sentence.split()[:6]) + ("…" if len(sentence.split()) > 6 else "")
     return ""
