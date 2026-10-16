@@ -17,8 +17,8 @@ Szlif przepisuje polski tekst modelem Bielik i czyści go z ukrytych znaków. Mo
 
 - Nie obiecuje, że tekst „przejdzie” przez detektory AI.
 - Nie usuwa statystycznych znaków wodnych (szczegóły niżej, w części o AI Act).
-- Nie gwarantuje sensu. Strażnik sensu nie rozumie, a model, który go sprawdza („Sprawdź Bielikiem”), też się myli. Nazwy, twierdzenia i ton musisz przeczytać sam (zobacz [Jakość](#jakość)).
-- Nie wysyła tekstu poza komputer, chyba że sam wskażesz zewnętrzny serwer. Wtedy strona pokazuje czerwony pasek.
+- Nie gwarantuje sensu. Strażnik sensu nie rozumie, a model, który go sprawdza („Sprawdź Bielikiem”), też się myli. Nazwy, twierdzenia i ton trzeba przeczytać samodzielnie (zobacz [Jakość](#jakość)).
+- Nie wysyła tekstu poza komputer, chyba że wskażesz zewnętrzny serwer. Wtedy strona pokazuje czerwony pasek.
 
 ## Szybki start: macOS
 
@@ -93,10 +93,12 @@ Strona wygląda na Windows tak samo jak na zrzutach powyżej. **Uczciwie:** na W
 
 ## Aktualizacja
 
+Polecenia `szlif.py` uruchamiaj w folderze Szlifu (tym, w którym leży plik `szlif.py`). W innym folderze terminal odpowie „can't open file … szlif.py”. Wtedy wejdź do folderu Szlifu albo podaj pełną ścieżkę, np. `python3 ~/szlif/szlif.py aktualizuj` (Windows: `py C:\ścieżka\do\szlif\szlif.py aktualizuj`).
+
 - **Twoja wersja:** `python3 szlif.py --wersja` (Windows: `py szlif.py --wersja`). Widać ją też w stopce strony.
 - **Aktualizacja:** `python3 szlif.py aktualizuj` (Windows: `py szlif.py aktualizuj`). Szlif pyta GitHuba o najnowsze wydanie, a potem:
   - w kopii z `git clone` robi `git pull --ff-only`. Gdy masz zmiany w plikach Szlifu, odmawia i prosi o `git stash`, żeby niczego nie nadpisać;
-  - w kopii z `git clone` bez polecenia `git` (np. z GitHub Desktop) niczego nie nadpisuje i prosi o pobranie zmian tam, skąd klonowałeś;
+  - w kopii z `git clone` bez polecenia `git` (np. z GitHub Desktop) niczego nie nadpisuje i prosi o pobranie zmian w programie, którym kopia została sklonowana;
   - w kopii z ZIP pobiera paczkę wydania z GitHuba i zapisuje jej pliki na stare. Najpierw zapisuje wszystkie nowe pliki obok starych, a podmienia je dopiero, gdy to się uda. Twoje zmiany w plikach Szlifu przepadną, a pliki spoza paczki zostają.
 
   Potem uruchom Szlif ponownie.
@@ -119,7 +121,7 @@ Strona wygląda na Windows tak samo jak na zrzutach powyżej. **Uczciwie:** na W
   - prosty (1 runda: rytm zdań);
   - standardowy (2 rundy: plus słownictwo);
   - wzmocniony (3 rundy: plus przejścia).
-- **Każdy akapit przechodzi rundy osobno**, a każdą rundę porównujemy z jego oryginałem. Seria zatrzymuje się na pierwszym ostrzeżeniu. Runda 1 z ostrzeżeniem zostaje pokazana, żebyś sam zdecydował. Późniejsza runda z ostrzeżeniem jest odrzucana i zostaje runda przed nią. Seria kończy się też wtedy, gdy runda niczego nie zmienia.
+- **Każdy akapit przechodzi rundy osobno**, a każdą rundę porównujemy z jego oryginałem. Seria zatrzymuje się na pierwszym ostrzeżeniu. Runda 1 z ostrzeżeniem zostaje pokazana, żeby decyzja należała do Ciebie. Późniejsza runda z ostrzeżeniem jest odrzucana i zostaje runda przed nią. Seria kończy się też wtedy, gdy runda niczego nie zmienia.
 - **Limit to 12 000 znaków.** Dłuższy tekst podziel na części. Samo czyszczenie znaków („Tylko wyczyść znaki”) przyjmuje do 200 000 znaków.
 - **Błąd modelu przy jednym akapicie nie zatrzymuje całości.** Ten akapit zostaje bez zmian, a notatka podaje powód. Brak połączenia z modelem zatrzymuje cały przebieg.
 - **Akapity krótsze niż 12 słów zostają bez zmian.** Pojedyncze zdanie model lubi „uzupełniać” zmyśloną treścią.
@@ -141,7 +143,7 @@ Po przetworzeniu kliknij **Sprawdź Bielikiem**. Model wybrany na liście **Mode
 
 ![Panel „Sprawdzenie sensu” nad kolumnami Przed i Po](docs/zrzuty/3-sprawdzenie.png)
 
-Ten zrzut to prawdziwy przebieg (wersja 0.2.0) i dobry przykład, dlaczego czytasz sam:
+Ten zrzut to prawdziwy przebieg (wersja 0.2.0) i dobry przykład, dlaczego wynik trzeba przeczytać samodzielnie:
 
 - **Akapit 2:** Bielik dopisał od siebie „co najlepiej pokazuje, jak bardzo było popularne”. Strażnik tego nie zgłosił, bo dopisek nie ma liczb, a akapit urósł za mało, żeby przekroczyć próg długości. Znalazło go dopiero „Sprawdź Bielikiem”.
 - **Akapit 3:** ostrzeżenie strażnika („Brakuje: można”) to fałszywy alarm, bo „można kupić” → „są dostępne” nie zmienia pewności.
@@ -190,7 +192,7 @@ Przepisz plik tekst.txt Szlifem i sprawdź, czy nie zmienił się sens ani liczb
 1. Uruchom: python3 szlif.py przepisz tekst.txt --wynik wynik.txt --raport raport.json --sprawdz
    (kod wyjścia 3 oznacza ostrzeżenia strażnika, a nie błąd).
 2. Przeczytaj raport.json. Najpierw akapity z ostrzeżeniem (pola "problemy" i "powod") i punkty z pola "weryfikacja".
-3. Potem sam porównaj każdą parę "przed" i "po": liczby, jednostki, daty, nazwy, pewność („może” → „jest”),
+3. Potem samodzielnie porównaj każdą parę "przed" i "po": liczby, jednostki, daty, nazwy, pewność („może” → „jest”),
    zakres („czasami” → „zawsze”), treść dopisaną i pominiętą.
 4. Niczego nie poprawiaj w wynik.txt. Zwróć listę: numer akapitu, co się zmieniło (dokładne cytaty), waga.
    Jeśli nic się nie zmieniło, napisz: BEZ ZMIAN SENSU.
@@ -327,5 +329,5 @@ python3 tests/smoke.py
 
 - **Kod:** licencja [MIT](LICENSE).
 - **[lynote-ai/humanize-text](https://github.com/lynote-ai/humanize-text) (MIT):** stąd pomysł trzech rund przepisywania (rytm, słownictwo, przejścia). Polskie prompty są napisane od nowa. Szczegóły i pełna nota licencyjna są w [NOTICE](NOTICE).
-- **[Bielik](https://huggingface.co/speakleash) od SpeakLeash (Apache-2.0):** model pobierasz sam przez Ollamę. Szlif nie jest związany ze SpeakLeash.
+- **[Bielik](https://huggingface.co/speakleash) od SpeakLeash (Apache-2.0):** model pobierasz samodzielnie przez Ollamę. Szlif nie jest związany ze SpeakLeash.
 - **[Ollama](https://ollama.com) (MIT).**

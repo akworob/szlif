@@ -129,7 +129,7 @@
       <h2 id="sprawdzenie-tytul">Sprawdzenie sensu</h2>
       <p class="note">To lista miejsc do przeczytania, a nie werdykt. Weryfikator też się myli. W naszym teście Bielik
         znalazł dopisane zdanie, zmianę „może” → „zawsze” i pominięcie, ale wypisywał też zmiany samego stylu.
-        Coś może też przeoczyć, więc porównaj kolumny Przed i Po sam.</p>
+        Coś może też przeoczyć, więc porównaj kolumny Przed i Po samodzielnie.</p>
       <p class="note" id="ten-sam" hidden>Sprawdza ten sam model, który przepisywał, a on może nie zauważyć własnych
         zmian. Lepsza druga para oczu to inny model z listy Model albo „Kopiuj do weryfikacji”.</p>
       <div class="answer" id="odpowiedz"></div>
@@ -464,7 +464,7 @@ async function checkMeaning() {
     } while (part <= parts);
     if (!parts) answer.textContent = "Żaden akapit się nie zmienił, więc nie ma czego sprawdzać.";
     if (cut) notes.append(el("div", "problem", "Odpowiedź modelu jest ucięta (doszedł do limitu długości), więc o części "
-      + "akapitów nic nie napisał. Te akapity przeczytaj sam."));
+      + "akapitów nic nie napisał. Te akapity przeczytaj samodzielnie."));
   } catch (e) {
     const where = parts > 1 ? "Część " + part + " z " + parts + ": " : "";
     notes.append(el("div", "problem", e.name === "AbortError"

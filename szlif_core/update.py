@@ -164,8 +164,8 @@ def run_update(out: TextIO, root: Path = ROOT, release: Optional[Dict] = None,
     print("Nowa wersja %s (masz %s): %s" % (release["wersja"], __version__, release["adres"]), file=out)
     if install_kind(root) == "git" and not which("git"):
         # Never write a ZIP over a clone: e.g. GitHub Desktop has no git command on PATH.
-        print("To kopia z gita, ale nie widzę polecenia git. Pobierz zmiany tam, skąd klonowałeś "
-              "(np. GitHub Desktop: Fetch origin, potem Pull), albo zainstaluj git.", file=out)
+        print("To kopia z gita, ale nie widzę polecenia git. Pobierz zmiany w programie, którym "
+              "kopia została sklonowana (np. GitHub Desktop: Fetch origin, potem Pull), albo zainstaluj git.", file=out)
         return 1
     try:
         code = update_git(root, run, out) if install_kind(root) == "git" else (
