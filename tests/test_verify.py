@@ -1,6 +1,10 @@
 import unittest
 
-from szlif_core.verify import build_prompt, chunk_pairs
+from szlif_core.backends import BackendError, Reply
+from szlif_core.verify import build_prompt, check_meaning, chunk_pairs
+from tests.fakes import FakeBackend
+
+LONG_A, LONG_B = "Pierwsze zdanie. " * 200, "Drugie zdanie. " * 200  # one pair fills a part
 
 
 class VerifyPrompt(unittest.TestCase):
@@ -35,6 +39,59 @@ class VerifyPrompt(unittest.TestCase):
 
     def test_nothing_to_verify(self):
         self.assertEqual(build_prompt([(1, "Ala ma kota.", "Ala ma kota.")], []), "")
+
+
+class CheckMeaning(unittest.TestCase):
+    def test_one_call_per_part(self):
+        backend = FakeBackend([Reply(" Akapit 1: BEZ ZMIAN ", False), Reply("Akapit 2: DODAJE „zawsze”.", False)])
+        check = check_meaning(backend, "m", [(1, LONG_A, LONG_B), (2, LONG_B, LONG_A)], [])
+        self.assertEqual(check, {"model": "m", "odpowiedz": "Akapit 1: BEZ ZMIAN\n\nAkapit 2: DODAJE „zawsze”.",
+                                 "uciete": False})
+        self.assertEqual([model for model, _, _ in backend.calls], ["m", "m"])
+        self.assertIn("Akapit 1\nPRZED: " + LONG_A.strip(), backend.calls[0][2])
+        self.assertNotIn("Akapit 2\n", backend.calls[0][2])
+        self.assertIn("Akapit 2\nPRZED: " + LONG_B.strip(), backend.calls[1][2])
+
+    def test_cut_reply_marked(self):
+        check = check_meaning(FakeBackend([Reply("Akapit 1: POMIJA", True)]), "m", [(1, "Ala ma kota.", "Kot.")], [])
+        self.assertEqual((check["odpowiedz"], check["uciete"]), ("Akapit 1: POMIJA\n(odpowiedź ucięta)", True))
+
+    def test_error_keeps_answers_so_far(self):
+        backend = FakeBackend([Reply("Akapit 1: BEZ ZMIAN", False), BackendError("Serwer modelu nie odpowiedział.")])
+        check = check_meaning(backend, "m", [(1, LONG_A, LONG_B), (2, LONG_B, LONG_A)], [])
+        self.assertEqual(check, {"model": "m", "odpowiedz": "Akapit 1: BEZ ZMIAN", "uciete": False,
+                                 "blad": "Serwer modelu nie odpowiedział."})
+
+    def test_unchanged_pairs_not_sent(self):  # an unchanged pair alone in a part made an empty prompt
+        backend = FakeBackend([Reply("Akapit 2: BEZ ZMIAN", False)])
+        check_meaning(backend, "m", [(1, LONG_A, LONG_A), (2, LONG_B, LONG_A)], [])
+        self.assertEqual(len(backend.calls), 1)
+        self.assertIn("Akapit 2\n", backend.calls[0][2])
+
+    def test_nothing_changed_no_call(self):
+        backend = FakeBackend()
+        self.assertEqual(check_meaning(backend, "m", [(1, "Ala ma kota.", "Ala ma kota. ")], ["Uwaga"]),
+                         {"model": "m", "odpowiedz": "", "uciete": False})
+        self.assertEqual(backend.calls, [])
+
+    def test_warnings_go_with_their_part(self):
+        backend = FakeBackend([Reply("a", False), Reply("b", False)])
+        check_meaning(backend, "m", [(1, LONG_A, LONG_B), (12, LONG_B, LONG_A)],
+                      ["Liczby się nie zgadzają.", "Akapit 1: za długi", "Akapit 12: za krótki"])
+        first, second = backend.calls[0][2], backend.calls[1][2]
+        self.assertIn("- Liczby się nie zgadzają.", first)
+        self.assertIn("- Liczby się nie zgadzają.", second)
+        self.assertIn("- Akapit 1: za długi", first)
+        self.assertNotIn("Akapit 12: za krótki", first)
+        self.assertIn("- Akapit 12: za krótki", second)
+        self.assertNotIn("Akapit 1: za długi", second)
+
+    def test_odd_warning_text(self):  # warnings come from the page's request; "1:x"[:-1] made int() fail
+        backend = FakeBackend([Reply("a", False)])
+        odd = ["Akapit 1:x", "Akapit 2:y", "Akapit " + "9" * 5000 + ":"]
+        check_meaning(backend, "m", [(1, "Ala ma kota.", "Kot.")], odd)
+        self.assertIn("- Akapit 1:x", backend.calls[0][2])
+        self.assertNotIn("Akapit 2:y", backend.calls[0][2])
 
 
 if __name__ == "__main__":

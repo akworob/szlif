@@ -164,6 +164,76 @@ class Weryfikacja(unittest.TestCase):
         self.assertEqual((status, r["blad"]), (400, "Nieprawidłowe zapytanie."))
 
 
+def sprawdz(**body):
+    return dict({"pary": [{"numer": 2, "przed": "Ala ma kota.", "po": "Kot jest Ali."}], "uwagi": [], "model": "v"},
+                **body)
+
+
+LONG_A, LONG_B = "Pierwsze zdanie. " * 200, "Drugie zdanie. " * 200  # one pair fills a part
+TWO_PARTS = [{"numer": 1, "przed": LONG_A, "po": LONG_B}, {"numer": 3, "przed": LONG_B, "po": LONG_A}]
+
+
+class Sprawdz(unittest.TestCase):
+    def test_whole_check(self):
+        backend = FakeBackend([Reply("Akapit 2: BEZ ZMIAN", False)])
+        with Running(backend) as s:
+            status, r, _ = s.call("POST", "/api/sprawdz", sprawdz(uwagi=["Akapit 2: uwaga"]))
+        self.assertEqual(status, 200)
+        self.assertEqual(r, {"model": "v", "odpowiedz": "Akapit 2: BEZ ZMIAN", "uciete": False, "czesci": 1})
+        self.assertEqual(backend.calls[0][0], "v")
+        self.assertIn("Akapit 2\nPRZED: Ala ma kota.\nPO: Kot jest Ali.", backend.calls[0][2])
+        self.assertIn("- Akapit 2: uwaga", backend.calls[0][2])
+
+    def test_one_part_per_request(self):  # the page shows progress and can stop between parts
+        backend = FakeBackend([Reply("Akapit 3: POMIJA", True)])
+        with Running(backend) as s:
+            status, r, _ = s.call("POST", "/api/sprawdz", sprawdz(pary=TWO_PARTS, czesc=2))
+        self.assertEqual(status, 200)
+        self.assertEqual(r, {"model": "v", "odpowiedz": "Akapit 3: POMIJA\n(odpowiedź ucięta)", "uciete": True,
+                             "czesci": 2})
+        self.assertEqual(len(backend.calls), 1)
+        self.assertIn("Akapit 3\nPRZED: ", backend.calls[0][2])
+        self.assertNotIn("Akapit 1\n", backend.calls[0][2])
+
+    def test_default_model(self):
+        backend = FakeBackend([Reply("Akapit 2: BEZ ZMIAN", False)])
+        with Running(backend, default_model="bielik") as s:
+            r = s.call("POST", "/api/sprawdz", sprawdz(model=None))[1]
+        self.assertEqual((r["model"], backend.calls[0][0]), ("bielik", "bielik"))
+
+    def test_no_model(self):
+        with Running(FakeBackend(), default_model=None) as s:
+            status, r, _ = s.call("POST", "/api/sprawdz", sprawdz(model=None))
+        self.assertEqual(status, 400)
+        self.assertIn("Brak modelu", r["blad"])
+
+    def test_nothing_changed(self):
+        backend = FakeBackend()
+        with Running(backend) as s:
+            same = [{"numer": 1, "przed": "a", "po": "a"}]
+            status, r, _ = s.call("POST", "/api/sprawdz", sprawdz(pary=same, czesc=1))
+        self.assertEqual((status, r["odpowiedz"], r["czesci"], backend.calls), (200, "", 0, []))
+
+    def test_backend_error_is_502(self):
+        message = "Serwer modelu nie odpowiedział w 900 s. Spróbuj krótszego tekstu."
+        with Running(FakeBackend([BackendError(message)])) as s:
+            status, r, _ = s.call("POST", "/api/sprawdz", sprawdz())
+        self.assertEqual((status, r["blad"]), (502, message))
+
+    def test_bad_input(self):
+        bad = [sprawdz(pary="x"), sprawdz(pary=[{"numer": 1}]), sprawdz(uwagi="x"), sprawdz(model=5),
+               sprawdz(pary=TWO_PARTS, czesc=3), sprawdz(pary=TWO_PARTS, czesc=0), sprawdz(czesc="x")]
+        backend = FakeBackend()
+        with Running(backend) as s:
+            answers = [s.call("POST", "/api/sprawdz", body)[:2] for body in bad]
+            huge = s.call("POST", "/api/sprawdz", b'{"pary": [{"numer": 1, "przed": "a", "po": "b"}], "czesc": 1e999}',
+                          {"Content-Type": "application/json"})[:2]
+        for status, r in answers + [huge]:
+            self.assertEqual(status, 400, r)
+            self.assertTrue(r["blad"])
+        self.assertEqual(backend.calls, [])
+
+
 class Runda(unittest.TestCase):
     def test_runda_ok(self):
         with Running(FakeBackend([Reply("Kot jest Ali.", False)])) as s:

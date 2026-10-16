@@ -71,7 +71,7 @@ class Przepisz(unittest.TestCase):
         self.assertIn("Akapit 2\nPRZED: " + P1, chats[-1][3]["messages"][-1]["content"])
         self.assertIn("Weryfikacja (m):", err.getvalue())
         with open(report, encoding="utf-8") as f:
-            self.assertEqual(json.load(f)["weryfikacja"], {"model": "m", "odpowiedz": R1})
+            self.assertEqual(json.load(f)["weryfikacja"], {"model": "m", "odpowiedz": R1, "uciete": False})
 
     def test_unwritable_output_fails_before_the_model(self):
         with FakeServer(ollama(R1)) as s:

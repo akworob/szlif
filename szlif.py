@@ -15,16 +15,15 @@ if sys.version_info < (3, 9):
 import argparse
 import json
 import os
-import re
 import webbrowser
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from szlif_core import COMMAND, config
 from szlif_core.backends import BackendError, make_backend
 from szlif_core.process import process_text, warning_lines
 from szlif_core.rewrite import MODES
 from szlif_core.server import make_server
-from szlif_core.verify import build_prompt, chunk_pairs
+from szlif_core.verify import build_prompt, check_meaning
 
 DEFAULT_SERVER = "http://127.0.0.1:11434"
 
@@ -79,21 +78,6 @@ def _read_input(name: str) -> str:
         return f.read()
 
 
-def _check_meaning(backend, checker: str, pairs, lines) -> Dict:
-    """Ask the model to compare every pair, a few paragraphs per call so that a long text is
-    not cut off; an error is recorded, not raised, since the rewrite itself is done."""
-    answers = []
-    try:
-        for chunk in chunk_pairs(pairs):
-            numbers = {n for n, _, _ in chunk}
-            notes = [l for l in lines if not re.match(r"Akapit \d+:", l) or int(l.split()[1][:-1]) in numbers]
-            reply = backend.chat(checker, "Jesteś uważnym weryfikatorem tekstu.", build_prompt(chunk, notes))
-            answers.append(reply.text.strip() + ("\n(odpowiedź ucięta)" if reply.cut else ""))
-    except BackendError as e:
-        return {"model": checker, "odpowiedz": "\n\n".join(answers), "blad": str(e)}
-    return {"model": checker, "odpowiedz": "\n\n".join(answers)}
-
-
 def rewrite_file(args: argparse.Namespace) -> int:
     """szlif.py przepisz: the page's work without the page, for scripts and agents."""
     def say(text: str, end: str = "\n") -> None:
@@ -144,7 +128,7 @@ def rewrite_file(args: argparse.Namespace) -> int:
     if args.sprawdz and any(before.strip() != after.strip() for _, before, after in pairs):
         checker = args.model_weryfikatora or model
         say("Sprawdzam sens modelem %s…" % checker)
-        check = _check_meaning(backend, checker, pairs, lines)
+        check = check_meaning(backend, checker, pairs, lines)
     report = dict(result, model=model, tryb=args.tryb)
     if check:
         report["weryfikacja"] = check

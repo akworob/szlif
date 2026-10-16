@@ -57,6 +57,11 @@
   .problem { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 8px 12px; border-radius: 4px; }
   .problem b { font-weight: 600; }
   .stopped { color: var(--muted); }
+  .check { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+           border-radius: 8px; padding: 12px 18px 14px; margin: 0 0 16px; display: grid; gap: 8px; }
+  .check h2 { font: 600 15px/1.3 var(--sans); margin: 0; overflow-wrap: anywhere; }
+  .check .note { color: var(--muted); font-size: 14px; margin: 0; }
+  .check .answer { white-space: pre-wrap; overflow-wrap: anywhere; }
   .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .column { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px 18px; min-width: 0; }
   .column h2 { font: 600 15px/1.2 var(--sans); color: var(--muted); margin: 0 0 10px; }
@@ -112,9 +117,20 @@
     <div class="summary">
       <div class="facts" id="facts"></div>
       <div class="copy-buttons">
+        <button id="sprawdz" hidden title="Wybrany model (domyślnie Bielik) porównuje każdy przepisany akapit z oryginałem i wypisuje, co dodał, pominął albo zmienił. Długi tekst sprawdza po kilka akapitów. Weryfikator też się myli.">Sprawdź Bielikiem</button>
         <button id="weryfikuj" hidden title="Kopiuje prompt z parami akapitów przed i po. Wklej go do drugiego modelu (Bielik w Ollamie, Claude, GPT, Grok), żeby sprawdził, czy sens i liczby się nie zmieniły.">Kopiuj do weryfikacji</button>
         <button id="kopiuj">Kopiuj wynik</button>
       </div>
+    </div>
+    <div class="check" id="sprawdzenie" hidden>
+      <h2 id="sprawdzenie-tytul">Sprawdzenie sensu</h2>
+      <p class="note">To lista miejsc do przeczytania, a nie werdykt. Weryfikator też się myli. W naszym teście Bielik
+        znalazł dopisane zdanie, zmianę „może” → „zawsze” i pominięcie, ale wypisywał też zmiany samego stylu.
+        Coś może też przeoczyć, więc porównaj kolumny Przed i Po sam.</p>
+      <p class="note" id="ten-sam" hidden>Sprawdza ten sam model, który przepisywał, a on może nie zauważyć własnych
+        zmian. Lepsza druga para oczu to inny model z listy Model albo „Kopiuj do weryfikacji”.</p>
+      <div class="answer" id="odpowiedz"></div>
+      <div id="sprawdzenie-uwagi"></div>
     </div>
     <div class="columns">
       <div class="column"><h2>Przed</h2><div class="text" id="przed"></div></div>
@@ -138,7 +154,7 @@ const NAMES = {
   SPACJA: "nietypowa spacja", LS: "separator wiersza", PS: "separator akapitu", homoglif: "litera z innego alfabetu",
   "pełna-szerokość": "znak pełnej szerokości", ukryty: "ukryty tekst", "—": "myślnik", "–": "półpauza",
 };
-let limit = 12000, finalText = "", controller = null, toVerify = null;
+let limit = 12000, finalText = "", controller = null, toVerify = null, rewrittenWith = null;
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -172,6 +188,8 @@ function updateCount() {
   const empty = !$("tekst").value.trim() || n > limit;
   $("przetworz").disabled = empty || !$("model").value || controller !== null;
   $("wyczysc").disabled = empty || controller !== null;
+  $("sprawdz").textContent = /bielik/i.test($("model").value) ? "Sprawdź Bielikiem" : "Sprawdź modelem";
+  $("sprawdz").disabled = !$("model").value || controller !== null;
 }
 
 async function loadState() {
@@ -257,7 +275,10 @@ function render(view, notes) {
   }
   $("kopiuj").textContent = "Kopiuj wynik";
   $("weryfikuj").textContent = "Kopiuj do weryfikacji";
-  $("weryfikuj").hidden = !(toVerify && toVerify.pary.length);
+  const changed = !!toVerify && toVerify.pary.some((p) => p.przed.trim() !== p.po.trim());
+  $("weryfikuj").hidden = !changed;
+  $("sprawdz").hidden = !changed;
+  $("sprawdzenie").hidden = true;
   $("result").hidden = false;
 }
 
@@ -343,9 +364,44 @@ async function processText() {
     }
     if (!todo) notes.push({info: "Nie ma tu akapitu do przepisania: nagłówki, listy i akapity krótsze niż 12 słów zostają bez zmian."});
     toVerify = {pary: pairs, uwagi: warnings};
+    rewrittenWith = model;
     render(view, notes);
   } catch (e) {
     showError(e.name === "AbortError" ? "Przerwano." : e.message);
+  } finally {
+    controller = null;
+    busy(null);
+  }
+}
+
+// The model compares the pairs part by part (a long prompt in one call would be cut), so the page
+// shows progress, and after Przerwij no further part is asked for. Model text goes in as text, never HTML.
+async function checkMeaning() {
+  const model = $("model").value, answer = $("odpowiedz"), notes = $("sprawdzenie-uwagi"), texts = [];
+  controller = new AbortController();
+  $("sprawdzenie-tytul").textContent = "Sprawdzenie sensu: " + model;
+  $("ten-sam").hidden = model !== rewrittenWith;
+  answer.replaceChildren();
+  notes.replaceChildren();
+  $("sprawdzenie").hidden = false;
+  let part = 1, parts = null, cut = false;
+  try {
+    do {
+      busy(parts ? "Sprawdzam część " + part + " z " + parts + "…" : "Sprawdzam sens…");
+      const res = await api("/api/sprawdz", Object.assign({}, toVerify, {model, czesc: part}), controller.signal);
+      parts = res.czesci;
+      cut = cut || res.uciete;
+      if (res.odpowiedz) texts.push(res.odpowiedz);
+      answer.textContent = texts.join("\n\n");
+      part++;
+    } while (part <= parts);
+    if (!parts) answer.textContent = "Żaden akapit się nie zmienił, więc nie ma czego sprawdzać.";
+    if (cut) notes.append(el("div", "problem", "Odpowiedź modelu jest ucięta (doszedł do limitu długości), więc o części "
+      + "akapitów nic nie napisał. Te akapity przeczytaj sam."));
+  } catch (e) {
+    const where = parts > 1 ? "Część " + part + " z " + parts + ": " : "";
+    notes.append(el("div", "problem", e.name === "AbortError"
+      ? "Przerwano" + (part > 1 ? " po części " + (part - 1) + " z " + parts : "") + "." : where + e.message));
   } finally {
     controller = null;
     busy(null);
@@ -356,6 +412,7 @@ $("tekst").addEventListener("input", updateCount);
 $("model").addEventListener("change", updateCount);
 $("przetworz").addEventListener("click", processText);
 $("wyczysc").addEventListener("click", cleanOnly);
+$("sprawdz").addEventListener("click", checkMeaning);
 $("przerwij").addEventListener("click", () => controller && controller.abort());
 function copyFallback(text) {
   const area = el("textarea");
@@ -386,7 +443,7 @@ $("weryfikuj").addEventListener("click", async () => {
     $("weryfikuj").textContent = "Skopiowano prompt";
     if (prompt.length > 6000) {
       $("facts").append(el("div", "stopped", "Prompt jest długi (" + grouped(prompt.length) + " znaków). Bielik w „ollama run” "
-        + "może go uciąć. Wklej go do modelu z dużym kontekstem albo użyj „szlif.py przepisz --sprawdz”, "
+        + "może go uciąć. Wklej go do modelu z dużym kontekstem albo kliknij „" + $("sprawdz").textContent + "”, "
         + "który sprawdza tekst po kilka akapitów."));
     }
   } catch (e) { showError(e.message); }

@@ -5,9 +5,14 @@ The guard checks numbers the same way every time; meaning only a reader can judg
 prompt makes a second model one more reader. It errs too, so its answer is a list of places
 to look at, not a verdict."""
 
-from typing import List, Tuple
+import re
+from typing import Dict, List, Optional, Tuple
+
+from .backends import Backend, BackendError
 
 Pair = Tuple[int, str, str]  # paragraph number on the page, before, after
+
+SYSTEM = "Jesteś uważnym weryfikatorem tekstu."
 
 # Measured with Bielik 11B v3.0 as the verifier: asked for a table with six categories it
 # answered "no change" and missed an invented sentence; asked this way, per paragraph, it
@@ -21,10 +26,14 @@ Dla każdego akapitu napisz jedną z dwóch odpowiedzi:
 Cytuj dokładnie. Nie poprawiaj tekstu i nie oceniaj stylu."""
 
 
+def changed_pairs(pairs: List[Pair]) -> List[Pair]:
+    return [(n, before, after) for n, before, after in pairs if before.strip() != after.strip()]
+
+
 def build_prompt(pairs: List[Pair], warnings: List[str]) -> str:
     """The whole prompt, with the guard's warnings and the changed pairs; "" when no
     paragraph changed."""
-    changed = [(n, before, after) for n, before, after in pairs if before.strip() != after.strip()]
+    changed = changed_pairs(pairs)
     if not changed:
         return ""
     guard = "\n".join("- " + w for w in warnings) if warnings else "Strażnik Szlifa nie zgłosił uwag."
@@ -50,3 +59,27 @@ def chunk_pairs(pairs: List[Pair], max_chars: int = 6000) -> List[List[Pair]]:
     if current:
         chunks.append(current)
     return chunks
+
+
+def _paragraph(warning: str) -> Optional[str]:
+    """The paragraph number a warning is about, as text; None for a whole-text warning."""
+    found = re.match(r"Akapit (\d+):", warning)
+    return found.group(1) if found else None
+
+
+def check_meaning(backend: Backend, model: str, pairs: List[Pair], warnings: List[str]) -> Dict:
+    """{"model", "odpowiedz", "uciete"[, "blad"]}: the model compares the changed pairs, one part
+    (chunk_pairs) per call, so that a long text is not cut off; each part gets the whole-text
+    warnings and those of its own paragraphs. An error is recorded with the answers so far, not
+    raised, since the rewrite itself is done."""
+    answers, cut = [], False
+    try:
+        for part in chunk_pairs(changed_pairs(pairs)):
+            numbers = {str(n) for n, _, _ in part}
+            notes = [w for w in warnings if _paragraph(w) in numbers or _paragraph(w) is None]
+            reply = backend.chat(model, SYSTEM, build_prompt(part, notes))
+            answers.append(reply.text.strip() + ("\n(odpowiedź ucięta)" if reply.cut else ""))
+            cut = cut or reply.cut
+    except BackendError as e:
+        return {"model": model, "odpowiedz": "\n\n".join(answers), "uciete": cut, "blad": str(e)}
+    return {"model": model, "odpowiedz": "\n\n".join(answers), "uciete": cut}

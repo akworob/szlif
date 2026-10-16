@@ -1,5 +1,5 @@
 """Smoke test: start szlif.py with no model server and check that the page loads,
-reports the missing server and still cleans text. Exits 0 on success, 1 on failure.
+reports the missing server, still cleans text and says why a check cannot run. Exits 0 on success, 1 on failure.
 
     python tests/smoke.py
 """
@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -36,6 +37,12 @@ def main():
         view = post(base + "/api/widok", {"tekst": "a​b", "wynik": None, "ukryte": True, "myslniki": False})
         result = "".join(s["text"] for s in view["po"])
         assert result == "ab", "cleaning gave %r" % result
+        try:
+            post(base + "/api/sprawdz", {"pary": [{"numer": 1, "przed": "a", "po": "b"}], "uwagi": [], "model": "m"})
+            raise AssertionError("check without a model server did not fail")
+        except urllib.error.HTTPError as e:
+            assert e.code == 502, "check without a model server answered %d" % e.code
+            assert "Nie mogę połączyć się" in json.load(e)["blad"], "check gave no reason"
     except Exception as e:  # report any failure as one line, then fail the job
         print("smoke: FAIL: %s" % e)
         return 1

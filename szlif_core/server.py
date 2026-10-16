@@ -10,7 +10,7 @@ import os
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from . import COMMAND
 from .backends import Backend, BackendError
@@ -18,7 +18,7 @@ from .blocks import split_blocks
 from .cleaner import clean, summary
 from .guard import check
 from .rewrite import MAX_CHARS, MODES, run_round
-from .verify import build_prompt
+from .verify import build_prompt, changed_pairs, check_meaning, chunk_pairs
 from .view import build_view
 
 PAGE = Path(__file__).with_name("strona.html")
@@ -57,6 +57,18 @@ def _text(body: Dict, name: str, required: bool = True) -> Optional[str]:
         raise Invalid(413, "Tekst ma %s znaków, limit to %s. Podziel go na części."
                       % (_grouped(len(value)), _grouped(MAX_CHARS)))
     return value
+
+
+def _pairs(body: Dict) -> Tuple[List[Tuple[int, str, str]], List[str]]:
+    """The paragraph pairs and the guard's warnings the page sends for a check."""
+    pairs, warnings = body.get("pary"), body.get("uwagi", [])
+    try:
+        pairs = [(int(p["numer"]), str(p["przed"]), str(p["po"])) for p in pairs]
+        if not isinstance(warnings, list):
+            raise TypeError
+    except (TypeError, KeyError, ValueError, OverflowError):
+        raise Invalid(400, "Nieprawidłowe zapytanie.")
+    return pairs, [str(w) for w in warnings]
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -111,7 +123,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._json(400, {"blad": "Nieprawidłowe zapytanie."})
         routes = {"/api/bloki": self._bloki, "/api/runda": self._runda, "/api/widok": self._widok,
-                  "/api/weryfikacja": self._weryfikacja}
+                  "/api/weryfikacja": self._weryfikacja, "/api/sprawdz": self._sprawdz}
         route = routes.get(self.path.split("?", 1)[0])
         if route is None:
             return self._json(404, {"blad": "Nie ma takiej strony."})
@@ -144,23 +156,39 @@ class Handler(BaseHTTPRequestHandler):
         cleaned = clean(tekst, bool(body.get("ukryte", True)), bool(body.get("myslniki", False))).text
         return {"bloki": split_blocks(cleaned)}
 
+    def _model(self, body: Dict) -> str:
+        model = body.get("model") or self.server.default_model
+        if not isinstance(model, str) or not model:
+            raise Invalid(400, "Brak modelu. Uruchom: %s instaluj" % COMMAND)
+        return model
+
     def _weryfikacja(self, body: Dict) -> Dict:
         """The prompt for a second model that checks the meaning of every rewritten paragraph."""
-        pairs, warnings = body.get("pary"), body.get("uwagi", [])
-        try:
-            pairs = [(int(p["numer"]), str(p["przed"]), str(p["po"])) for p in pairs]
-            if not isinstance(warnings, list):
-                raise TypeError
-        except (TypeError, KeyError, ValueError, OverflowError):
-            raise Invalid(400, "Nieprawidłowe zapytanie.")
-        return {"prompt": build_prompt(pairs, [str(w) for w in warnings])}
+        return {"prompt": build_prompt(*_pairs(body))}
+
+    def _sprawdz(self, body: Dict) -> Dict:
+        """The model checks the meaning: all parts at once, or only part "czesc" (from 1) so that
+        the page can show progress and stop between parts. "czesci" says how many there are."""
+        pairs, warnings = _pairs(body)
+        model = self._model(body)
+        parts = chunk_pairs(changed_pairs(pairs))
+        if body.get("czesc") is not None and parts:
+            try:
+                part = int(body["czesc"])
+            except (TypeError, ValueError, OverflowError):
+                raise Invalid(400, "Nieprawidłowe zapytanie.")
+            if not 1 <= part <= len(parts):
+                raise Invalid(400, "Nie ma części %d, są %d." % (part, len(parts)))
+            pairs = parts[part - 1]
+        result = check_meaning(self.server.backend, model, pairs, warnings)
+        if "blad" in result:
+            raise BackendError(result["blad"])
+        return dict(result, czesci=len(parts))
 
     def _runda(self, body: Dict) -> Dict:
         tekst = _text(body, "tekst")
         current = _text(body, "biezacy", required=False)
-        model = body.get("model") or self.server.default_model
-        if not isinstance(model, str) or not model:
-            raise Invalid(400, "Brak modelu. Uruchom: %s instaluj" % COMMAND)
+        model = self._model(body)
         hidden, dashes = bool(body.get("ukryte", True)), bool(body.get("myslniki", False))
         original = clean(tekst, hidden, dashes).text
         try:
