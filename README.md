@@ -116,7 +116,8 @@ Polecenia `szlif.py` uruchamiaj w folderze Szlifu (tym, w którym leży plik `sz
   - Żółte podkreślenie: wartość, której nie ma w wyniku.
   - Pogrubienie: słowo, po którym w wyniku nie ma śladu, nawet w innej formie. Mogło je zastąpić inne słowo, ale mogło też zniknąć z treści.
 - **Prawa kolumna to wynik.** Na zielono jest to, co doszło.
-- **Nad kolumnami** widać, co wyczyszczono, ostrzeżenia o liczbach (zaznaczone też w tekście) i notatki przy konkretnych akapitach, np. „Akapit 4 (…)”, z powodem ostrzeżenia.
+- **Nad kolumnami** widać, co wyczyszczono, i jedną linię z tym, co trzeba sprawdzić, np. „Do sprawdzenia: akapit 3”.
+- **Pod kolumnami** są szczegóły: ostrzeżenia o liczbach (zaznaczone też w tekście), notatki przy konkretnych akapitach, np. „Akapit 4 (…)”, z powodem ostrzeżenia, i lista słów bez śladu w wyniku.
 - **Tryby:**
   - prosty (1 runda: rytm zdań);
   - standardowy (2 rundy: plus słownictwo);
@@ -143,7 +144,7 @@ Po przetworzeniu kliknij **Sprawdź Bielikiem**. Model wybrany na liście **Mode
 
 ![Panel „Sprawdzenie sensu” nad kolumnami Przed i Po](docs/zrzuty/3-sprawdzenie.png)
 
-Ten zrzut to prawdziwy przebieg (wersja 0.2.0) i dobry przykład, dlaczego wynik trzeba przeczytać samodzielnie:
+Ten zrzut pokazuje prawdziwe odpowiedzi Bielika z przebiegu na wersji 0.2.0, w układzie strony z wersji 0.2.2. To dobry przykład, dlaczego wynik trzeba przeczytać samodzielnie:
 
 - **Akapit 2:** Bielik dopisał od siebie „co najlepiej pokazuje, jak bardzo było popularne”. Strażnik tego nie zgłosił, bo dopisek nie ma liczb, a akapit urósł za mało, żeby przekroczyć próg długości. Znalazło go dopiero „Sprawdź Bielikiem”.
 - **Akapit 3:** ostrzeżenie strażnika („Brakuje: można”) to fałszywy alarm, bo „można kupić” → „są dostępne” nie zmienia pewności.

@@ -57,6 +57,9 @@
   .problem { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 8px 12px; border-radius: 4px; }
   .problem b { font-weight: 600; }
   .stopped { color: var(--muted); }
+  .details { display: grid; gap: 8px; margin-top: 18px; scroll-margin-top: 16px; }
+  .details h2 { font: 600 15px/1.2 var(--sans); color: var(--muted); margin: 0 0 2px; }
+  .facts a { color: inherit; font-weight: 600; }
   .check { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent);
            border-radius: 8px; padding: 12px 18px 14px; margin: 0 0 16px; display: grid; gap: 8px; }
   .check h2 { font: 600 15px/1.3 var(--sans); margin: 0; overflow-wrap: anywhere; }
@@ -139,6 +142,7 @@
       <div class="column"><h2>Przed</h2><div class="text" id="przed"></div></div>
       <div class="column"><h2>Po</h2><div class="text" id="po"></div></div>
     </div>
+    <div class="details" id="szczegoly" hidden></div>
   </section>
 
   <footer>
@@ -305,27 +309,46 @@ function render(view, notes) {
   facts.append(el("div", "", cleaned.length
     ? "Wyczyszczono: " + cleaned.map(([kind, n]) => (NAMES[kind] || kind) + " ×" + n).join(", ") + "."
     : "Nie znaleziono ukrytych znaków."));
-  const terms = view.znikniete || [];
-  if (terms.length) {
-    const shown = terms.slice(0, 15).join(", ") + (terms.length > 15 ? " i " + (terms.length - 15) + " innych" : "");
-    facts.append(el("div", "", "Słowa z oryginału, których nie ma w wyniku: " + shown + " (pogrubione w kolumnie Przed). "
-      + "Mogło je zastąpić inne słowo, ale mogły też zniknąć z treści."));
-  }
+  // The comparison is what matters most, so the details go under the columns; above them stays
+  // one line saying what is there, so a warning is not missed.
+  const details = $("szczegoly");
+  details.replaceChildren(el("h2", "", "Uwagi do wyniku"));
+  const values = view.problemy.filter((p) => p.kind === "values");
   // Numbers are checked on the whole text (and marked in it); the rest per paragraph, in notes.
-  for (const p of view.problemy.filter((p) => p.kind === "values")) {
+  for (const p of values) {
     const box = el("div", "problem");
     box.append(el("b", "", p.message));
     if (p.missing.length) box.append(el("div", "", "Brakuje w wyniku: " + p.missing.join(", ")));
     if (p.added.length) box.append(el("div", "", "Dodane w wyniku: " + p.added.join(", ")));
-    facts.append(box);
+    details.append(box);
   }
+  const noted = [];
   for (const note of notes || []) {
     if (note.info) { facts.append(el("div", "stopped", note.info)); continue; }
     const box = el("div", "problem");
     box.append(el("b", "", "Akapit " + note.number + " („" + note.start + "”)"));
     for (const p of note.problems) box.append(el("div", "", detail(p)));
     if (note.reason) box.append(el("div", "stopped", note.reason));
-    facts.append(box);
+    details.append(box);
+    noted.push(note.number);
+  }
+  const terms = view.znikniete || [];
+  if (terms.length) {
+    const shown = terms.slice(0, 15).join(", ") + (terms.length > 15 ? " i " + (terms.length - 15) + " innych" : "");
+    details.append(el("div", "", "Słowa z oryginału, których nie ma w wyniku: " + shown + " (pogrubione w kolumnie Przed). "
+      + "Mogło je zastąpić inne słowo, ale mogły też zniknąć z treści."));
+  }
+  const parts = [];
+  if (noted.length) parts.push((noted.length === 1 ? "akapit " : "akapity ") + listPl(noted));
+  if (values.length) parts.push("liczby w całym tekście");
+  if (terms.length) parts.push(terms.length + " " + plural(terms.length, "słowo", "słowa", "słów") + " bez śladu w wyniku");
+  details.hidden = !parts.length;
+  if (parts.length) {
+    const line = el("div", noted.length || values.length ? "problem" : "", "Do sprawdzenia: " + parts.join(", ") + ". ");
+    const link = el("a", "", "Szczegóły pod porównaniem");
+    link.href = "#szczegoly";
+    line.append(link, document.createTextNode("."));
+    facts.append(line);
   }
   $("kopiuj").textContent = "Kopiuj wynik";
   $("weryfikuj").textContent = "Kopiuj do weryfikacji";
@@ -376,6 +399,16 @@ async function rewriteBlock(base, block, rounds, model, signal, progress) {
     }
   }
   return {tekst: current === null ? block.tekst : current, cut, problems, reason};
+}
+
+function listPl(items) {  // [2, 3, 5] -> "2, 3 i 5"
+  return items.length < 2 ? String(items[0]) : items.slice(0, -1).join(", ") + " i " + items[items.length - 1];
+}
+
+function plural(n, one, few, many) {  // Polish: 1 słowo, 2 słowa, 5 słów, 22 słowa, 12 słów
+  if (n === 1) return one;
+  const tens = n % 100, units = n % 10;
+  return units >= 2 && units <= 4 && (tens < 12 || tens > 14) ? few : many;
 }
 
 function detail(p) {

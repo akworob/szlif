@@ -37,6 +37,11 @@ class Versions(unittest.TestCase):
         self.assertTrue(update.check_due({"aktualizacje": True, "sprawdzono": now - 2 * 86400}, now))
 
 
+    def test_files_in_polish(self):  # "Zapisano 42 plików" was wrong
+        self.assertEqual([update.files_pl(n) for n in (1, 2, 5, 12, 22, 42, 112)],
+                         ["1 plik", "2 pliki", "5 plików", "12 plików", "22 pliki", "42 pliki", "112 plików"])
+
+
 class LatestRelease(unittest.TestCase):
     def test_found(self):
         with FakeServer({("GET", "/repos/akworob/szlif/releases/latest"): (200, RELEASE, 0)}) as s:
@@ -116,8 +121,10 @@ class Updating(unittest.TestCase):
         data = zip_bytes({"szlif-abc/szlif.py": "nowy", "szlif-abc/szlif_core/x.py": "x",
                           "szlif-abc/../ucieczka.txt": "zle"})
         (self.root / "szlif.py").write_text("stary")
+        out = io.StringIO()
         with FakeServer({("GET", "/zip"): (200, data, 0)}) as s:
-            update.update_zip(self.root, s.url + "/zip", io.StringIO(), allowed_hosts={"127.0.0.1"})
+            update.update_zip(self.root, s.url + "/zip", out, allowed_hosts={"127.0.0.1"})
+        self.assertIn("Zapisano 2 pliki", out.getvalue())
         self.assertEqual((self.root / "szlif.py").read_text(), "nowy")
         self.assertEqual((self.root / "szlif_core" / "x.py").read_text(), "x")
         self.assertFalse((self.root.parent / "ucieczka.txt").exists())

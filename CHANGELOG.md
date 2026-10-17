@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.2.2 (październik 2026)
+
+- **Porównanie przed i po jest wyżej.** Uwagi strażnika, notatki przy akapitach i słowa bez śladu w wyniku są teraz pod kolumnami. Nad kolumnami zostaje jedna linia, np. „Do sprawdzenia: akapit 3”, z odnośnikiem do szczegółów.
+- **Drobne:** aktualizacja z ZIP pisze „Zapisano 42 pliki”, a nie „42 plików”.
+
 ## 0.2.1 (październik 2026)
 
 - **Poprawka:** w 0.2.0 strona nie startowała, gdy `python3 szlif.py` uruchomiono w terminalu (błąd `UnboundLocalError`). Z wersji 0.2.0 zaktualizujesz się poleceniem `python3 szlif.py aktualizuj`, bo ono działało.

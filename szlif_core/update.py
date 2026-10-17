@@ -140,7 +140,15 @@ def update_zip(root: Path, url: str, out: TextIO, allowed_hosts: Iterable[str] =
             _remove(temp for temp, _ in staged[done:])
             raise UpdateError("Zapis nowej wersji przerwany (%s): część plików jest nowa, część stara. "
                               "Uruchom aktualizację jeszcze raz albo pobierz ZIP od nowa." % e)
-    print("Zapisano %d plików nowej wersji." % len(staged), file=out)
+    print("Zapisano %s nowej wersji." % files_pl(len(staged)), file=out)
+
+
+def files_pl(n: int) -> str:
+    """1 plik, 2 pliki, 5 plików, 22 pliki, 112 plików."""
+    if n == 1:
+        return "1 plik"
+    few = 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14
+    return "%d %s" % (n, "pliki" if few else "plików")
 
 
 def _remove(paths: Iterable[Path]) -> None:
